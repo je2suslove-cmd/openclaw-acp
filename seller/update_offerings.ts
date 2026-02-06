@@ -1,14 +1,32 @@
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import {
+  createJobOffering,
+  deleteJobOffering,
+  type JobOfferingData,
+} from "./acp-client/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const CONFIG_JSON_PATH = path.resolve(__dirname, "..", "config.json");
+
+interface PriceV2 {
+  type: "fixed";
+  value: number;
+}
 
 interface OfferingJson {
   name: string;
   description: string;
   jobFee: number;
+  /** ACP-specific fields (optional — used when registering with ACP) */
+  priceV2?: PriceV2;
+  slaMinutes?: number;
+  requiredFunds?: boolean;
+  requirement?: Record<string, string>;
+  deliverable?: string;
 }
 
 interface ValidationResult {
@@ -148,6 +166,41 @@ function validateHandlers(filePath: string): ValidationResult {
   return result;
 }
 
+function readApiKey(): string {
+  try {
+    const raw = fs.readFileSync(CONFIG_JSON_PATH, "utf-8");
+    const config = JSON.parse(raw);
+    const key = config?.LITE_AGENT_API_KEY;
+    if (typeof key === "string" && key.trim().length > 0) return key;
+  } catch {
+    // config.json missing or unreadable — fall through
+  }
+  const envKey = process.env.LITE_AGENT_API_KEY?.trim();
+  if (envKey) return envKey;
+
+  console.error(
+    "❌ No API key found. Run `npm run setup` first or set LITE_AGENT_API_KEY."
+  );
+  return process.exit(1) as never;
+}
+
+/**
+ * Build the ACP job-offering payload from an offering.json object.
+ * Fields like priceV2, slaMinutes, etc. can be specified directly in the
+ * offering.json; otherwise sensible defaults derived from jobFee are used.
+ */
+function buildAcpPayload(json: OfferingJson): JobOfferingData {
+  return {
+    name: json.name,
+    description: json.description,
+    priceV2: json.priceV2 ?? { type: "fixed", value: json.jobFee },
+    slaMinutes: json.slaMinutes ?? 5,
+    requiredFunds: json.requiredFunds ?? false,
+    requirement: json.requirement ?? {},
+    deliverable: json.deliverable ?? "string",
+  };
+}
+
 function resolveOfferingDir(offeringName: string): string {
   return path.resolve(__dirname, "offerings", offeringName);
 }
@@ -165,7 +218,7 @@ function ensureOfferingDirExists(offeringsDir: string, offeringName: string) {
   }
 }
 
-function createOffering(offeringName: string) {
+async function createOffering(offeringName: string) {
   const offeringsDir = resolveOfferingDir(offeringName);
 
   console.log(`\n📦 Validating offering: "${offeringName}"\n`);
@@ -222,11 +275,25 @@ function createOffering(offeringName: string) {
 
   console.log("\n✅ Validation passed! Offering is ready for submission.\n");
 
+  // --- Register with ACP ---
+  const json: OfferingJson = JSON.parse(
+    fs.readFileSync(offeringJsonPath, "utf-8")
+  );
+  const apiKey = readApiKey();
+  const acpPayload = buildAcpPayload(json);
+
   console.log("🚀 Registering offering with ACP network...");
-  console.log("   ✅ Offering successfully registered with ACP.\n");
+  const result = await createJobOffering(apiKey, acpPayload);
+
+  if (result.success) {
+    console.log("   ✅ Offering successfully registered with ACP.\n");
+  } else {
+    console.error("   ❌ Failed to register offering with ACP.\n");
+    process.exit(1);
+  }
 }
 
-function deleteOffering(offeringName: string) {
+async function deleteOffering(offeringName: string) {
   const offeringsDir = resolveOfferingDir(offeringName);
 
   console.log(`\n🗑️  Delisting offering: "${offeringName}"\n`);
@@ -234,11 +301,20 @@ function deleteOffering(offeringName: string) {
 
   ensureOfferingDirExists(offeringsDir, offeringName);
 
+  const apiKey = readApiKey();
+
   console.log("🚀 Delisting offering from ACP network...");
-  console.log("   ✅ Offering successfully delisted from ACP.\n");
+  const result = await deleteJobOffering(apiKey, offeringName);
+
+  if (result.success) {
+    console.log("   ✅ Offering successfully delisted from ACP.\n");
+  } else {
+    console.error("   ❌ Failed to delist offering from ACP.\n");
+    process.exit(1);
+  }
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
 
   if (args.length < 2) {
@@ -256,10 +332,10 @@ function main() {
 
   switch (action) {
     case "create":
-      createOffering(offeringName);
+      await createOffering(offeringName);
       break;
     case "delete":
-      deleteOffering(offeringName);
+      await deleteOffering(offeringName);
       break;
     default:
       console.error(`❌ Unknown action: "${action}"`);
@@ -268,4 +344,7 @@ function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
