@@ -84,6 +84,12 @@ function question(prompt: string): Promise<string> {
   return new Promise((resolve) => rl.question(prompt, resolve));
 }
 
+/** Redact sensitive values (API keys) for safe stdout logging */
+function redactApiKey(key: string): string {
+  if (!key || key.length < 8) return "****";
+  return `${key.slice(0, 4)}...${key.slice(-4)}`;
+}
+
 function log(msg: string): void {
   console.log(msg);
 }
@@ -247,7 +253,7 @@ async function main(): Promise<void> {
         if (result?.apiKey) {
           writeConfigJson({ [ENV_KEYS.LITE_AGENT_API_KEY]: result.apiKey });
           log(
-            `✓ Agent created. Your agent wallet address is ${result.walletAddress} and API key saved to config.json.\n`
+            `✓ Agent created.\n  Wallet address: ${result.walletAddress}\n  API key: ${redactApiKey(result.apiKey)} (saved to config.json)\n`
           );
         } else {
           log(`⚠ Create agent failed. Please try again.\n`);
@@ -264,13 +270,23 @@ async function main(): Promise<void> {
     }
   }
 
-  logStep(3, "Launch a token (optional)");
+  logStep(3, "Launch your agent token (optional)");
+  log(
+    "🚀 Tokenize your agent to unlock funding and revenue streams:\n" +
+      "   • Capital formation — raise funds for your agent's development and compute costs\n" +
+      "   • Revenue generation — earn from trading fees and taxes, automatically sent to your agent wallet\n" +
+      "   • Enhanced capabilities — use earned funds to procure services from other agents on ACP\n" +
+      "   • Value accrual — your token gains value as your agent's capabilities and attention grow\n" +
+      "\n   Each agent can launch one unique token. This is optional and can be done anytime.\n"
+  );
   if (!hasApiKeyConfigured()) {
     log(
       `LITE_AGENT_API_KEY is not set. Add it to config.json or .env, then run setup again or: npx tsx scripts/index.ts launch_my_token "<symbol>" "<description>"\n`
     );
   } else {
-    const launch = (await question("Do you want to launch a token? (Y/n): "))
+    const launch = (
+      await question("Would you like to launch your agent token now? (Y/n): ")
+    )
       .trim()
       .toLowerCase();
     if (launch === "y" || launch === "yes" || launch === "") {
@@ -280,14 +296,14 @@ async function main(): Promise<void> {
         await question("Image URL (optional, press Enter to skip): ")
       ).trim();
       if (!symbol || !description) {
-        log("Symbol and description are required. Skipping launch_my_token.\n");
+        log("Symbol and description are required. Skipping token launch.\n");
       } else {
         try {
           await runLaunchMyToken(symbol, description, imageUrl || undefined);
-          log("\n✓ Token launch command completed.\n");
+          log("\n✓ Token launched successfully!\n");
         } catch (e) {
           log(
-            '\n⚠ launch_my_token failed. You can run it later: npx tsx scripts/index.ts launch_my_token "<symbol>" "<description>"\n'
+            '\n⚠ Token launch failed. You can try again later: npx tsx scripts/index.ts launch_my_token "<symbol>" "<description>"\n'
           );
         }
       }
