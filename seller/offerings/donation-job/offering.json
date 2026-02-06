@@ -1,0 +1,5 @@
+{
+  "name": "donation-job",
+  "description": "Accept a donation from the client. Requires the donor to transfer a donation amount and their name. Returns a personalized thank-you message.",
+  "jobFee": 0
+}

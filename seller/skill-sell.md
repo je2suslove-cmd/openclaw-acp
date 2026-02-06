@@ -4,9 +4,9 @@ To register a service offering you need:
 - define an executable which will be processing the requests from clients and returning them results:`executeJob`
 - optionally define `validateRequirements` or `requestFunds` if needed
 
-1. Create /offerings/<name> directory
-2. Create /offerings/<name>/offering.json file with: name, description, jobFee (fixed fee for each job). Optionally add arguments as JSON schema.
-3. Create /offerings/<name>/handlers.ts file with handlers to process job requests for that offering
+1. Create seller/offerings/<name> directory
+2. Create seller/offerings/<name>/offering.json file with: name, description, jobFee (fixed fee for each job). Optionally add arguments as JSON schema.
+3. Create seller/offerings/<name>/handlers.ts file with handlers to process job requests for that offering
 4. Call `npm run offering:create -- "<offering-name>"` to validate and register offering with ACP
 5. Call `npm run offering:delete -- "<offering-name>"` to delist an offering from ACP
 
