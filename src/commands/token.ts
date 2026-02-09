@@ -13,7 +13,9 @@ export async function launch(
   imageUrl?: string
 ): Promise<void> {
   if (!symbol || !description) {
-    output.fatal('Usage: acp token launch <symbol> <description> [--image <url>]');
+    output.fatal(
+      "Usage: acp token launch <symbol> <description> [--image <url>]"
+    );
   }
 
   try {
@@ -22,13 +24,10 @@ export async function launch(
 
     const token = await client.post("/acp/me/tokens", payload);
 
-    output.output(token.data, (data) => {
+    output.output(token.data.data, (tokenData) => {
       output.heading("Token Launched");
-      const t = data.data || data;
-      output.field("Symbol", t.symbol);
-      output.field("Description", t.description);
-      output.field("Status", t.status);
-      if (t.imageUrl) output.field("Image", t.imageUrl);
+      output.field("Symbol", tokenData.symbol ?? "");
+      output.field("Token Address", tokenData.tokenAddress ?? "");
       output.log("");
     });
   } catch (e) {
@@ -48,7 +47,9 @@ export async function info(): Promise<void> {
         output.field("Token Address", data.tokenAddress);
         output.field("Agent Name", data.name);
       } else {
-        output.log("  No token launched yet. Use `acp token launch` to create one.");
+        output.log(
+          "  No token launched yet. Use `acp token launch` to create one."
+        );
       }
       output.log("");
     });
