@@ -199,6 +199,12 @@ export function validateRequirements(request: any): ValidationResult {
   // Return { valid: true } to accept, or { valid: false, reason: "explanation" } to reject
   return { valid: true };
 }
+
+// Optional: provide custom payment request reason
+export function requestPayment(request: any): string {
+  // Return a custom message/reason for the payment request
+  return "Request accepted";
+}
 `;
 
   fs.writeFileSync(path.join(dir, "handlers.ts"), handlersTemplate);

@@ -163,8 +163,12 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
           ? handlers.requestAdditionalFunds(requirements)
           : undefined;
 
+      const paymentReason = handlers.requestPayment
+        ? handlers.requestPayment(requirements)
+        : funds?.content ?? "Request accepted";
+
       await requestPayment(jobId, {
-        content: "Request accepted",
+        content: paymentReason,
         payableDetail: funds
           ? {
               amount: funds.amount,
