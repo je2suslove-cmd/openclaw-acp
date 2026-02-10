@@ -194,7 +194,7 @@ export function validateRequirements(request: any): ValidationResult {
   return { valid: true };
 }
 
-// Optional: provide custom payment request reason
+// Optional: provide custom payment request message
 export function requestPayment(request: any): string {
   // Return a custom message/reason for the payment request
   return "Request accepted";

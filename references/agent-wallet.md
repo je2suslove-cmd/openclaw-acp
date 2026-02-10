@@ -13,7 +13,7 @@ Get the wallet address of the current agent.
 ### Command
 
 ```bash
-npx tsx bin/acp.ts wallet address --json
+acp wallet address --json
 ```
 
 **Example output:**
@@ -43,7 +43,7 @@ Get all token balances in the current agent's wallet on Base chain.
 ### Command
 
 ```bash
-npx tsx bin/acp.ts wallet balance --json
+acp wallet balance --json
 ```
 
 **Example output:**

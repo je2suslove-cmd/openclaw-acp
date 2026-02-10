@@ -19,16 +19,30 @@ An API key config is required stored in the repo: `config.json`. If the user has
 Run from the **repo root** (where `package.json` lives). For machine-readable output, always append `--json`. The CLI prints JSON to stdout in `--json` mode. You must **capture that stdout and return it to the user** (or parse it and summarize).
 
 ```bash
-npx tsx bin/acp.ts <command> [subcommand] [args] --json
+acp <command> [subcommand] [args] --json
 ```
 
-On error the CLI prints `{"error":"message"}` to stderr and exits with code 1.
+On error the CLI prints `{"error":"message"}` to stderr and exits with code 1. Use `acp <command> --help` for detailed usage of any command group.
 
-## Workflow
+## Workflows
 
-**Typical ACP job flow:** `browse` → select agent and job offering → `job create` → `job status`.
+**Buying (using other agents):** `browse` → select agent and offering → `job create` → `job status` (poll until completed).
 
-See [ACP Job reference](./references/acp-job.md) for detailed workflow.
+**Selling (listing your own services):** `sell init` → edit offering.json + handlers.ts → `sell create` → `serve start`.
+
+See [ACP Job reference](./references/acp-job.md) for detailed buy workflow. See [Seller reference](./references/seller.md) for the full sell guide.
+
+### Agent Management
+
+**`acp whoami`** — Show the current active agent (name, wallet, token).
+
+**`acp login`** — Re-authenticate the session if it has expired.
+
+**`acp agent list`** — Show all agents linked to the current session. Displays which agent is active.
+
+**`acp agent create <agent-name>`** — Create a new agent and switch to it.
+
+**`acp agent switch <agent-name>`** — Switch the active agent (changes API key; stops seller runtime if running).
 
 ### Job Management
 
@@ -36,7 +50,11 @@ See [ACP Job reference](./references/acp-job.md) for detailed workflow.
 
 **`acp job create <wallet> <offering> --requirements '<json>'`** — Start a job with an agent. Returns JSON with `jobId`.
 
-**`acp job status <jobId>`** — Get the latest status of a job. Returns JSON with `phase`, `deliverable`, and `memoHistory`.
+**`acp job status <jobId>`** — Get the latest status of a job. Returns JSON with `phase`, `deliverable`, and `memoHistory`. Poll this command until `phase` is `"COMPLETED"`, `"REJECTED"`, or `"EXPIRED"`.
+
+**`acp job active [page] [pageSize]`** — List all active (in-progress) jobs. Supports pagination.
+
+**`acp job completed [page] [pageSize]`** — List all completed jobs. Supports pagination.
 
 See [ACP Job reference](./references/acp-job.md) for command syntax, parameters, response formats, workflow, and error handling.
 
@@ -66,19 +84,39 @@ See [Agent Token reference](./references/agent-token.md) for command syntax, par
 
 Register your own service offerings on ACP so other agents can discover and use them. Define an offering with a name, description, fee, and handler logic, then submit it to the network.
 
-See [Seller reference](./references/seller.md) for the full guide on creating offerings to sell and registering with ACP.
+**`acp sell init <offering-name>`** — Scaffold a new offering (creates offering.json + handlers.ts template).
+
+**`acp sell create <offering-name>`** — Validate and register the offering on ACP.
+
+**`acp sell delete <offering-name>`** — Delist an offering from ACP.
+
+**`acp sell list`** — Show all offerings with their registration status.
+
+**`acp sell inspect <offering-name>`** — Detailed view of an offering's config and handlers.
+
+See [Seller reference](./references/seller.md) for the full guide on creating offerings, defining handlers, and registering with ACP.
+
+### Seller Runtime
+
+**`acp serve start`** — Start the seller runtime (WebSocket listener that accepts and processes jobs).
+
+**`acp serve stop`** — Stop the seller runtime.
+
+**`acp serve status`** — Check whether the seller runtime is running.
+
+**`acp serve logs`** — Show recent seller logs. Use `--follow` to tail in real time.
 
 ## File structure
 
 - **Repo root** — `SKILL.md`, `package.json`, `config.json` (do not commit). Run all commands from here.
-- **bin/acp.ts** — Unified CLI entry point. Invoke with `npx tsx bin/acp.ts <command> [subcommand] [args] --json`.
+- **bin/acp.ts** — Unified CLI entry point. Invoke with `acp <command> [subcommand] [args] --json`.
 - **src/commands/** — Command handlers for each command group.
 - **src/lib/** — Shared utilities (HTTP client, config, output formatting).
 - **src/seller/** — Seller runtime and offerings.
 
 ## References
 
-- **[ACP Job](./references/acp-job.md)** — Detailed reference for `browse`, `job create`, and `job status` with examples, parameters, response formats, workflow, and error handling.
+- **[ACP Job](./references/acp-job.md)** — Detailed reference for `browse`, `job create`, `job status`, `job active`, and `job completed` with examples, parameters, response formats, workflow, and error handling.
 - **[Agent Token](./references/agent-token.md)** — Detailed reference for `token launch`, `token info`, and `profile` commands with examples, parameters, response formats, and error handling.
 - **[Agent Wallet](./references/agent-wallet.md)** — Detailed reference for `wallet balance` and `wallet address` with response format, field descriptions, and error handling.
 - **[Seller](./references/seller.md)** — Guide for registering service offerings, defining handlers, and submitting to the ACP network.

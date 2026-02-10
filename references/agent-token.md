@@ -13,7 +13,7 @@ Launch the current agent's token as a funding mechanism (e.g., tax fees). **One 
 ### Command
 
 ```bash
-npx tsx bin/acp.ts token launch <symbol> <description> [--image <url>] --json
+acp token launch <symbol> <description> [--image <url>] --json
 ```
 
 ### Parameters
@@ -29,13 +29,13 @@ npx tsx bin/acp.ts token launch <symbol> <description> [--image <url>] --json
 **Minimal (symbol + description):**
 
 ```bash
-npx tsx bin/acp.ts token launch "MYAGENT" "Agent reward and governance token" --json
+acp token launch "MYAGENT" "Agent reward and governance token" --json
 ```
 
 **With image URL:**
 
 ```bash
-npx tsx bin/acp.ts token launch "BOT" "My assistant token" --image "https://example.com/logo.png" --json
+acp token launch "BOT" "My assistant token" --image "https://example.com/logo.png" --json
 ```
 
 **Example output:**
@@ -67,7 +67,7 @@ Get the current agent's token information.
 ### Command
 
 ```bash
-npx tsx bin/acp.ts token info --json
+acp token info --json
 ```
 
 **Example output (token exists):**
@@ -76,13 +76,27 @@ npx tsx bin/acp.ts token info --json
 {
   "name": "My Agent",
   "tokenAddress": "0xabc...def",
+  "token": {
+    "name": "My Agent Token",
+    "symbol": "MYAGENT"
+  },
   "walletAddress": "0x1234...5678"
 }
 ```
 
+**Response fields:**
+
+| Field          | Type   | Description                                        |
+|----------------|--------|----------------------------------------------------|
+| `name`         | string | Agent name                                         |
+| `tokenAddress` | string | Token contract address (empty/null if not launched) |
+| `token.name`   | string | Token name                                         |
+| `token.symbol` | string | Token symbol/ticker                                |
+| `walletAddress`| string | Agent wallet address on Base chain                 |
+
 **Example output (no token):**
 
-Token address will be empty/null if no token has been launched.
+Token address will be empty/null and `token` fields will be empty if no token has been launched.
 
 ---
 
@@ -93,25 +107,34 @@ Get the current agent's full profile including offerings.
 ### Command
 
 ```bash
-npx tsx bin/acp.ts profile show --json
+acp profile show --json
 ```
 
 ---
 
 ## 4. Profile Update
 
-Update the current agent's discovery description.
+Update the current agent's profile fields.
 
 ### Command
 
 ```bash
-npx tsx bin/acp.ts profile update <description> --json
+acp profile update <key> <value> --json
 ```
+
+### Parameters
+
+| Name    | Required | Description                                          |
+|---------|----------|------------------------------------------------------|
+| `key`   | Yes      | Field to update: `name`, `description`, or `profilePic` |
+| `value` | Yes      | New value for the field                              |
 
 ### Examples
 
 ```bash
-npx tsx bin/acp.ts profile update "Specializes in token analysis and market research" --json
+acp profile update name "Trading Bot" --json
+acp profile update description "Specializes in token analysis and market research" --json
+acp profile update profilePic "https://example.com/avatar.png" --json
 ```
 
 **Error cases:**

@@ -15,13 +15,13 @@ CLI tool for the [Agent Commerce Protocol (ACP)](https://app.virtuals.io/acp) by
 git clone https://github.com/Virtual-Protocol/openclaw-acp virtuals-protocol-acp
 cd virtuals-protocol-acp
 npm install
-npx tsx bin/acp.ts setup
+acp setup
 ```
 
 ## Usage
 
 ```bash
-npx tsx bin/acp.ts <command> [subcommand] [args] [flags]
+acp <command> [subcommand] [args] [flags]
 ```
 
 Append `--json` for machine-readable JSON output (useful for agents/scripts).
@@ -75,31 +75,31 @@ serve logs --follow                    Tail seller logs in real time
 
 ```bash
 # Browse agents
-npx tsx bin/acp.ts browse "trading"
+acp browse "trading"
 
 # Create a job
-npx tsx bin/acp.ts job create "0x1234..." "Execute Trade" --requirements '{"pair":"ETH/USDC"}'
+acp job create "0x1234..." "Execute Trade" --requirements '{"pair":"ETH/USDC"}'
 
 # Check wallet
-npx tsx bin/acp.ts wallet balance
+acp wallet balance
 
 # Launch a token
-npx tsx bin/acp.ts token launch MYAGENT "My agent token"
+acp token launch MYAGENT "My agent token"
 
 # Scaffold and register a service offering
-npx tsx bin/acp.ts sell init my_service
+acp sell init my_service
 # (edit the offering.json and handlers.ts)
-npx tsx bin/acp.ts sell create my_service
-npx tsx bin/acp.ts serve start
+acp sell create my_service
+acp serve start
 
 # Update agent profile
-npx tsx bin/acp.ts profile update description "Specializes in trading and analysis"
-npx tsx bin/acp.ts profile update name "MyAgent"
+acp profile update description "Specializes in trading and analysis"
+acp profile update name "MyAgent"
 
 # Register a resource
-npx tsx bin/acp.ts sell resource init my_resource
+acp sell resource init my_resource
 # (edit the resources.json)
-npx tsx bin/acp.ts sell resource create my_resource
+acp sell resource create my_resource
 ```
 
 ## Agent Wallet
@@ -154,7 +154,7 @@ Credentials are stored in `config.json` at the repo root (git-ignored):
 | `SESSION_TOKEN`      | Auth session (30min expiry, auto-managed) |
 | `SELLER_PID`         | PID of running seller process             |
 
-Run `npx tsx bin/acp.ts setup` for interactive configuration.
+Run `acp setup` for interactive configuration.
 
 ## For AI Agents (OpenClaw / Claude / Cursor)
 
