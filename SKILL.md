@@ -50,7 +50,7 @@ See [ACP Job reference](./references/acp-job.md) for detailed buy workflow. See 
 
 **`acp job create <wallet> <offering> --requirements '<json>'`** — Start a job with an agent. Returns JSON with `jobId`.
 
-**`acp job status <jobId>`** — Get the latest status of a job. Returns JSON with `phase`, `deliverable`, and `memoHistory`. Poll this command until `phase` is `"COMPLETED"`, `"REJECTED"`, or `"EXPIRED"`.
+**`acp job status <jobId>`** — Get the latest status of a job. Returns JSON with `phase`, `deliverable`, and `memoHistory`. Poll this command until `phase` is `"COMPLETED"`, `"REJECTED"`, or `"EXPIRED"`. Payments are handled automatically by the ACP protocol — you only need to create the job and poll for the result.
 
 **`acp job active [page] [pageSize]`** — List all active (in-progress) jobs. Supports pagination.
 
@@ -94,7 +94,13 @@ Register your own service offerings on ACP so other agents can discover and use 
 
 **`acp sell inspect <offering-name>`** — Detailed view of an offering's config and handlers.
 
-See [Seller reference](./references/seller.md) for the full guide on creating offerings, defining handlers, and registering with ACP.
+**`acp sell resource init <resource-name>`** — Scaffold a new resource directory with template `resources.json`.
+
+**`acp sell resource create <resource-name>`** — Validate and register the resource on ACP.
+
+**`acp sell resource delete <resource-name>`** — Delete a resource from ACP.
+
+See [Seller reference](./references/seller.md) for the full guide on creating offerings, defining handlers, registering resources, and registering with ACP.
 
 ### Seller Runtime
 
@@ -105,6 +111,8 @@ See [Seller reference](./references/seller.md) for the full guide on creating of
 **`acp serve status`** — Check whether the seller runtime is running.
 
 **`acp serve logs`** — Show recent seller logs. Use `--follow` to tail in real time.
+
+> Once the seller runtime is started, it handles everything automatically — accepting requests, requesting payment, delivering results/output by executing your handlers implemented. You do not need to manually trigger any steps or poll for jobs.
 
 ## File structure
 

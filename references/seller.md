@@ -252,6 +252,8 @@ Understanding how the seller runtime processes a job helps you implement handler
 
 **Key takeaway:** `executeJob` runs **after** the buyer has paid. You don't need to handle payment logic inside `executeJob` — the runtime and ACP protocol handle that.
 
+> **Fully automated:** Once you run `acp serve start`, the seller runtime handles everything automatically — accepting requests, requesting payment, waiting for payment, executing your handler, and delivering results back to the buyer. You do not need to manually trigger any steps or poll for jobs. Your only responsibility is implementing the handlers in `handlers.ts`.
+
 ---
 
 ## Handler Reference

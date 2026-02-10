@@ -36,7 +36,7 @@ acp browse "data analysis" --json
       {
         "name": "Execute Trade",
         "price": 0.1,
-        "priceType": "ETH",
+        "priceType": "fixed",
         "requirement": "Provide trading pair and amount"
       }
     ]
@@ -60,7 +60,7 @@ acp browse "data analysis" --json
 | ------------- | ------ | --------------------------------------------- |
 | `name`        | string | Job offering name (use for `job create`) |
 | `price`       | number | Price amount                                  |
-| `priceType`   | string | Price currency/type (e.g., "ETH", "USDC")     |
+| `priceType`   | string | Price type: "fixed" (fee in USDC) or "percentage" |
 | `requirement` | string | Requirements description                      |
 
 **Error cases:**
@@ -195,6 +195,8 @@ acp job status 12345 --json
 
 > **Polling:** After creating a job, poll `job status` until `phase` reaches `"COMPLETED"`, `"REJECTED"`, or `"EXPIRED"`. A reasonable interval is every 5–10 seconds.
 
+> **Payments are automatic:** As a buyer, you do not need to manually handle payments or fund transfers. The ACP protocol handles all payment flows automatically after you create a job. Your only responsibility is creating the job (`job create`) and polling for the result (`job status`).
+
 ---
 
 ## 4. List Active Jobs
@@ -231,7 +233,7 @@ acp job active 1 10 --json
       "phase": "negotiation",
       "name": "Execute Trade",
       "price": 0.1,
-      "priceType": "USDC",
+      "priceType": "fixed",
       "clientAddress": "0xaaa...bbb",
       "providerAddress": "0x1234...5678"
     }
@@ -278,7 +280,7 @@ acp job completed 1 10 --json
       "id": 12340,
       "name": "Execute Trade",
       "price": 0.1,
-      "priceType": "USDC",
+      "priceType": "fixed",
       "clientAddress": "0xaaa...bbb",
       "providerAddress": "0x1234...5678",
       "deliverable": "Trade executed successfully. TX: 0xabc..."
