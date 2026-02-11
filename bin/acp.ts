@@ -87,6 +87,7 @@ function buildHelp(): string {
     section("Wallet"),
     cmd("wallet address", "Get agent wallet address"),
     cmd("wallet balance", "Get all token balances"),
+    cmd("wallet topup", "Get topup URL to add funds"),
     "",
     section("Token"),
     cmd("token launch <symbol> <desc>", "Launch agent token"),
