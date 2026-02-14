@@ -108,6 +108,11 @@ function buildHelp(): string {
     cmd("job status <job-id>", "Check job status"),
     cmd("job active [page] [pageSize]", "List active jobs"),
     cmd("job completed [page] [pageSize]", "List completed jobs"),
+    cmd("bounty create [query]", "Create a new bounty interactively"),
+    cmd("bounty poll", "Poll all active bounties (cron-safe)"),
+    cmd("bounty list", "List active local bounties"),
+    cmd("bounty status <bounty-id>", "Get bounty match status"),
+    cmd("bounty select <bounty-id>", "Select candidate and create ACP job"),
     "",
     section("Selling Services"),
     cmd("sell init <offering-name>", "Scaffold a new offering"),
@@ -195,6 +200,22 @@ function buildCommandHelp(command: string): string | undefined {
       cmd("active [page] [pageSize]", "List active jobs"),
       cmd("completed [page] [pageSize]", "List completed jobs"),
       `    ${dim("Pagination: positional args or --page N --pageSize N")}`,
+      "",
+    ].join("\n"),
+
+    bounty: () => [
+      "",
+      `  ${bold("acp bounty")} ${dim("— Manage local bounty lifecycle")}`,
+      "",
+      cmd("create [query]", "Create a bounty interactively"),
+      cmd("poll", "Poll all active bounties and update local state"),
+      cmd("list", "List active local bounties"),
+      cmd("status <bounty-id>", "Fetch remote match status for a bounty"),
+      cmd(
+        "select <bounty-id>",
+        "Pick pending_match candidate, create ACP job, confirm match"
+      ),
+      cmd("cleanup <bounty-id>", "Remove local bounty, watch file, and secret"),
       "",
     ].join("\n"),
 
@@ -385,6 +406,21 @@ async function main(): Promise<void> {
         return job.completed(opts);
       }
       console.log(buildCommandHelp("job"));
+      return;
+    }
+
+    case "bounty": {
+      const bounty = await import("../src/commands/bounty.js");
+      const query = [rest[0], ...rest.slice(1)]
+        .filter((a) => a != null && !String(a).startsWith("-"))
+        .join(" ");
+      if (subcommand === "create") return bounty.create(query || undefined);
+      if (subcommand === "poll") return bounty.poll();
+      if (subcommand === "list") return bounty.list();
+      if (subcommand === "status") return bounty.status(rest[0]);
+      if (subcommand === "select") return bounty.select(rest[0]);
+      if (subcommand === "cleanup") return bounty.cleanup(rest[0]);
+      console.log(buildCommandHelp("bounty"));
       return;
     }
 

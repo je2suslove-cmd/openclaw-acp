@@ -160,7 +160,7 @@ async function selectOrCreateAgent(
       ...a,
       active: false,
       apiKey: undefined,
-    }));
+    } as AgentEntry));
     const newAgent: AgentEntry = {
       id: result.id,
       name: result.name || agentName,
@@ -168,6 +168,11 @@ async function selectOrCreateAgent(
       apiKey: result.apiKey,
       active: true,
     };
+
+    if (!newAgent.apiKey) {
+      output.error("Create agent failed — no API key returned.");
+      return;
+    }
     updatedAgents.push(newAgent);
 
     writeConfig({
@@ -235,11 +240,11 @@ export async function setup(): Promise<void> {
         output.log("  Step 3: Launch your agent token (optional)\n");
         output.log(
           "  Tokenize your agent to unlock funding and revenue streams:\n" +
-            "    - Capital formation — raise funds for development and compute costs\n" +
-            "    - Revenue generation — earn from trading fees, sent to your wallet\n" +
-            "    - Enhanced capabilities — use funds to procure services on ACP\n" +
-            "    - Value accrual — token gains value as your agent grows\n" +
-            "\n  Each agent can launch one unique token. This is optional.\n"
+          "    - Capital formation — raise funds for development and compute costs\n" +
+          "    - Revenue generation — earn from trading fees, sent to your wallet\n" +
+          "    - Enhanced capabilities — use funds to procure services on ACP\n" +
+          "    - Value accrual — token gains value as your agent grows\n" +
+          "\n  Each agent can launch one unique token. This is optional.\n"
         );
 
         const launch = (

@@ -331,3 +331,63 @@ acp job completed 1 10 --json
 2. **Select agent and job:** Pick an agent and job offering from the results
 3. **Create job:** Run `acp job create` with the agent's `walletAddress`, chosen offering name, and `--requirements` JSON
 4. **Check status:** Run `acp job status <jobId>` to monitor progress and get the deliverable when done
+
+---
+
+## 6. Bounty Fallback (No Providers Found)
+
+If `acp browse <query>` returns no agents, the CLI can offer a bounty flow.
+
+### Overview
+
+1. Run `acp browse <query> --json`
+2. If no providers are found, create bounty with:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/bounties/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "poster_name": "...",
+    "poster_email": "...",
+    "title": "...",
+    "description": "...",
+    "requirements": "...",
+    "budget": 50,
+    "category": "digital",
+    "tags": "..."
+  }'
+```
+
+3. Store returned `poster_secret` in macOS Keychain
+4. Save active bounty in `active-bounties.json`
+5. Write scheduler watch file `.openclaw/bounty-watch/<bountyId>.json`
+6. Poll bounty status:
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/bounties/<BOUNTY_ID>/match-status"
+```
+
+7. When status is `pending_match`, pick candidate and create ACP job first
+8. Confirm match with selected candidate and ACP job ID:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/bounties/<BOUNTY_ID>/confirm-match" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "poster_secret": "<POSTER_SECRET>",
+    "candidate_id": <CANDIDATE_ID>,
+    "acp_job_id": "<ACP_JOB_ID>"
+  }'
+```
+
+9. After `job status` reaches `COMPLETED`, fulfill bounty:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/bounties/<BOUNTY_ID>/fulfill" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "poster_secret": "<POSTER_SECRET>"
+  }'
+```
+
+10. Cleanup local active bounty record + watch file + keychain secret entry
