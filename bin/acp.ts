@@ -100,6 +100,18 @@ function buildHelp(): string {
     cmd("profile update description <value>", "Update agent description"),
     cmd("profile update profilePic <url>", "Update agent profile picture"),
     "",
+    section("Twitter/X"),
+    cmd("twitter auth", "Get Twitter/X authentication link"),
+    cmd("twitter onboard <purpose>", "Complete Twitter/X onboarding"),
+    cmd("twitter post <text>", "Post a tweet"),
+    cmd("twitter reply <tweet-id> <text>", "Reply to a tweet by ID"),
+    cmd("twitter search <query>", "Search tweets"),
+    flag("--max-results <n>", "Maximum number of results (10-100)"),
+    flag("--exclude-retweets", "Exclude retweets"),
+    flag("--sort <order>", "Sort order: relevancy or recency"),
+    cmd("twitter timeline", "Get timeline tweets"),
+    flag("--max-results <n>", "Maximum number of results"),
+    "",
     section("Marketplace"),
     cmd("browse <query>", "Search agents on the marketplace"),
     "",
@@ -273,6 +285,32 @@ function buildCommandHelp(command: string): string | undefined {
       `    acp resource query https://api.example.com/market-data --params '{"symbol":"BTC"}'`,
       "",
       `  ${dim("Note: Always uses GET requests. Params are appended as query string.")}`,
+      "",
+    ].join("\n"),
+
+    twitter: () => [
+      "",
+      `  ${bold("acp twitter")} ${dim("— Twitter/X integration")}`,
+      "",
+      cmd("auth", "Get Twitter/X authentication link (opens in browser)"),
+      cmd("onboard <purpose>", "Complete Twitter/X onboarding after authentication"),
+      cmd("post <text>", "Post a tweet"),
+      cmd("reply <tweet-id> <text>", "Reply to a tweet by ID"),
+      cmd("search <query>", "Search tweets"),
+      flag("--max-results <n>", "Maximum number of results (10-100)"),
+      flag("--exclude-retweets", "Exclude retweets from results"),
+      flag("--sort <order>", "Sort order: relevancy or recency"),
+      cmd("timeline", "Get timeline tweets"),
+      flag("--max-results <n>", "Maximum number of results"),
+      "",
+      `  ${dim("Examples:")}`,
+      `    acp twitter auth`,
+      `    acp twitter onboard "posting tweets"`,
+      `    acp twitter post "Hello from ACP!"`,
+      `    acp twitter reply 1234567890 "Great tweet!"`,
+      `    acp twitter search "artificial intelligence" --max-results 50`,
+      `    acp twitter search "AI" --exclude-retweets --sort recency`,
+      `    acp twitter timeline --max-results 20`,
       "",
     ].join("\n"),
   };
@@ -482,6 +520,52 @@ async function main(): Promise<void> {
         return resource.query(url, params);
       }
       console.log(buildCommandHelp("resource"));
+      return;
+    }
+
+    case "twitter": {
+      const twitter = await import("../src/commands/twitter.js");
+      if (subcommand === "auth") return twitter.auth();
+      if (subcommand === "onboard") {
+        const purpose = rest.join(" ");
+        return twitter.onboardCommand(purpose);
+      }
+      if (subcommand === "post") {
+        const tweetText = rest.join(" ");
+        return twitter.post(tweetText);
+      }
+      if (subcommand === "reply") {
+        const tweetId = rest[0];
+        const replyText = rest.slice(1).join(" ");
+        return twitter.reply(tweetId, replyText);
+      }
+      if (subcommand === "search") {
+        const query = rest.filter((a) => !a.startsWith("--")).join(" ");
+        const maxResultsStr = getFlagValue(rest, "--max-results");
+        const maxResults = maxResultsStr
+          ? parseInt(maxResultsStr, 10)
+          : undefined;
+        const excludeRetweets = hasFlag(rest, "--exclude-retweets");
+        const sortOrder = getFlagValue(rest, "--sort") as
+          | "relevancy"
+          | "recency"
+          | undefined;
+        return twitter.search(query, {
+          maxResults: isNaN(maxResults as number) ? undefined : maxResults,
+          excludeRetweets: excludeRetweets || undefined,
+          sortOrder,
+        });
+      }
+      if (subcommand === "timeline") {
+        const maxResultsStr = getFlagValue(rest, "--max-results");
+        const maxResults = maxResultsStr
+          ? parseInt(maxResultsStr, 10)
+          : undefined;
+        return twitter.timeline(
+          isNaN(maxResults as number) ? undefined : maxResults
+        );
+      }
+      console.log(buildCommandHelp("twitter"));
       return;
     }
 
