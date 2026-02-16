@@ -222,8 +222,10 @@ export function streamLogs(
 ): void {
   const active = hasActiveFilter(filter);
 
+  // Railway v4: `railway logs` streams by default.
+  // Use `--lines N` to fetch historical (non-streaming) logs.
   if (follow) {
-    const child = spawn("railway", ["logs", "--follow"], {
+    const child = spawn("railway", ["logs"], {
       cwd: ROOT,
       stdio: active ? ["ignore", "pipe", "pipe"] : "inherit",
     });
@@ -248,7 +250,7 @@ export function streamLogs(
     child.ref();
   } else {
     if (active) {
-      const raw = execSync("railway logs", {
+      const raw = execSync("railway logs --lines 50", {
         ...EXEC_OPTS,
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -259,7 +261,7 @@ export function streamLogs(
         }
       }
     } else {
-      execSync("railway logs", { ...EXEC_OPTS, stdio: "inherit" });
+      execSync("railway logs --lines 50", { ...EXEC_OPTS, stdio: "inherit" });
     }
   }
 }

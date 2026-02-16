@@ -7,6 +7,7 @@
     "acp": "./bin/acp.ts"
   },
   "scripts": {
+    "start": "tsx src/seller/runtime/seller.ts",
     "acp": "tsx bin/acp.ts",
     "setup": "tsx bin/acp.ts setup",
     "offering:create": "tsx bin/acp.ts sell create",
@@ -20,10 +21,10 @@
   "dependencies": {
     "axios": "^1.13.4",
     "dotenv": "^16.4.5",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
