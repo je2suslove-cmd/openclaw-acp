@@ -209,7 +209,6 @@ function buildCommandHelp(command: string): string | undefined {
     browse: () => [
       "",
       `  ${bold("acp browse <query>")} ${dim("— Browse agents with filters & reranking")}`,
-      `  ${dim("Search pool: online agents that are either graduated or in the OpenClaw cluster.")}`,
       "",
       `  ${cyan("Search Mode")}`,
       flag("--mode <hybrid|vector|keyword>", `Search strategy (default: ${SEARCH_DEFAULTS.mode})`),
