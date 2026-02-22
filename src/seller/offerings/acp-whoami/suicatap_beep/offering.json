@@ -1,0 +1,18 @@
+{
+  "name": "suicatap_beep",
+  "description": "🍉 SuicaTap Beep (Base) — Fast beep scan (🟢🟡🔴).\nSignals: honeypot / tax / liquidity. Includes a JSON receipt.",
+  "jobFee": 0.03,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "Base(8453) 토큰 컨트랙트 주소(0x...)"
+      }
+    },
+    "required": ["tokenAddress"]
+  }
+}

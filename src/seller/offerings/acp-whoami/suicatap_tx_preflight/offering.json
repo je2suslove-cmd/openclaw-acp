@@ -1,0 +1,36 @@
+{
+  "name": "suicatap_tx_preflight",
+  "description": "🍉 SuicaTap TX Preflight (Base) — Safety gate before approve/swap.\nVerdict: ALLOW / CAUTION / BLOCK + slippage & sizing guidance + receipt link.\n\n✅ After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.\nExample: https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=0x...",
+  "jobFee": 0.12,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "Base(8453) 토큰 컨트랙트 주소(0x...)"
+      },
+      "intent": {
+        "type": "string",
+        "description": "approve | buy | sell",
+        "default": "buy"
+      },
+      "amountUsd": {
+        "type": "number",
+        "description": "예상 실행 금액(USD). 모르면 생략 가능"
+      },
+      "approveSpender": {
+        "type": "string",
+        "description": "approve 대상 spender 주소(0x...). approve일 때 선택"
+      },
+      "approveUnlimited": {
+        "type": "boolean",
+        "description": "무제한 approve인지 여부(approve일 때)",
+        "default": false
+      }
+    },
+    "required": ["tokenAddress"]
+  }
+}

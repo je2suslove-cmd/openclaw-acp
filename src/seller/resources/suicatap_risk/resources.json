@@ -1,0 +1,8 @@
+{
+  "name": "suicatap_risk",
+  "description": "🍉 SuicaTap Risk Resource (Base) — read-only JSON risk receipt. Call with tokenAddress=0x... (Base).",
+  "url": "https://acp-acp-whoami-production.up.railway.app/r/risk",
+  "params": {
+    "tokenAddress": { "type": "string", "description": "Base token contract address (0x...)" }
+  }
+}

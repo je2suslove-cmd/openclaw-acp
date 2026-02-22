@@ -1,0 +1,18 @@
+{
+  "name": "suicatap_report",
+  "description": "🍉 SuicaTap Report (Base) — Decision report for execution.\n3-line verdict + red flags + checklist + action plan + receipt link.\n\n✅ After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.\nExample: https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=0x...",
+  "jobFee": 0.18,
+  "jobFeeType": "fixed",
+  "slaMinutes": 10,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "Base(8453) 토큰 컨트랙트 주소(0x...)"
+      }
+    },
+    "required": ["tokenAddress"]
+  }
+}

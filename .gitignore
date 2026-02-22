@@ -49,3 +49,7 @@ test-dev.md
 
 .env.example
 .env
+# Local secrets / backups (DO NOT COMMIT)
+config.json
+config.json.backup*
+*.backup*

@@ -1,0 +1,9 @@
+{
+  "name": "suicatap_ping_free",
+  "description": "Low-cost health ping for SuicaTap runtime. Returns OK immediately. Use to verify uptime before buying scans.",
+  "jobFee": 0.01,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": { "type": "object", "properties": {}, "required": [] }
+}

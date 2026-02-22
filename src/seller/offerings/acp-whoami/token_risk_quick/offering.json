@@ -1,0 +1,23 @@
+{
+  "name": "token_risk_quick",
+  "description": "Token risk / rug check / honeypot screening (Base/EVM). Input: tokenAddress. Output: verdict + top flags + receipt URL.\n\n✅ After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.",
+  "jobFee": 0.03,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "EVM token contract address (0x...)"
+      },
+      "chain": {
+        "type": "string",
+        "description": "Chain name (default: base)",
+        "default": "base"
+      }
+    },
+    "required": ["tokenAddress"]
+  }
+}
