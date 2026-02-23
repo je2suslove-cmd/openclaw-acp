@@ -1,0 +1,30 @@
+{
+  "name": "suicatap_wallet_sweep",
+  "description": "SuicaTap Wallet Sweep — Scan all tokens in a wallet at once. Input: list of token addresses held by the wallet. Output: risk verdict for each token + overall portfolio risk summary. Supports Base, Ethereum, BSC. Cheaper than scanning one by one.",
+  "jobFee": 0.25,
+  "jobFeeType": "fixed",
+  "slaMinutes": 10,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "required": ["tokenAddresses"],
+    "properties": {
+      "tokenAddresses": {
+        "type": "array",
+        "items": { "type": "string" },
+        "maxItems": 10,
+        "description": "List of EVM token contract addresses held in the wallet (max 10)"
+      },
+      "chain": {
+        "type": "string",
+        "enum": ["base", "ethereum", "eth", "bsc"],
+        "default": "base",
+        "description": "Chain (default: base)"
+      },
+      "walletLabel": {
+        "type": "string",
+        "description": "Optional: wallet label or address for report header"
+      }
+    }
+  }
+}

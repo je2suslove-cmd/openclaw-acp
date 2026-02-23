@@ -1,0 +1,29 @@
+{
+  "name": "suicatap_monitor",
+  "description": "SuicaTap Monitor — Token risk snapshot with change alert. Scan a token and get current risk status + suggested re-check interval. Supports Base, Ethereum, BSC. Use periodically to track risk changes over time. Includes JSON receipt.",
+  "jobFee": 0.05,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "required": ["tokenAddress"],
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "EVM token contract address (0x...)"
+      },
+      "chain": {
+        "type": "string",
+        "enum": ["base", "ethereum", "eth", "bsc"],
+        "default": "base",
+        "description": "Chain (default: base)"
+      },
+      "previousBeep": {
+        "type": "string",
+        "enum": ["🟢", "🟡", "🔴", ""],
+        "description": "Optional: previous beep result to detect changes"
+      }
+    }
+  }
+}

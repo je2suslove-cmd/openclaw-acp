@@ -1,0 +1,20 @@
+{
+  "name": "suicatap_batch",
+  "description": "SuicaTap Batch Scan (Base) — Scan up to 5 tokens at once. Get beep verdict (🟢🟡🔴) + honeypot/tax/liquidity for each token in one request. Includes JSON receipt for all tokens. Cheaper than scanning one by one.",
+  "jobFee": 0.1,
+  "jobFeeType": "fixed",
+  "slaMinutes": 10,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "required": ["tokenAddresses"],
+    "properties": {
+      "tokenAddresses": {
+        "type": "array",
+        "items": { "type": "string" },
+        "maxItems": 5,
+        "description": "List of EVM token contract addresses to scan (max 5). e.g. [\"0x...\", \"0x...\"]"
+      }
+    }
+  }
+}
