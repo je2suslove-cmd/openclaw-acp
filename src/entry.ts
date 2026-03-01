@@ -226,3 +226,40 @@ if (process.env.TELEGRAM_ENABLED === "1") {
 } else {
   console.log("[Telegram] disabled (TELEGRAM_ENABLED!=1)");
 }
+
+// ── 자동화 스킬 (non-fatal) ──
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID ? Number(process.env.ADMIN_CHAT_ID) : null;
+
+setTimeout(async () => {
+  try {
+    const { startBountyPoller } = await import("./skills/bountyPoller.js");
+    startBountyPoller();
+  } catch (e: any) {
+    console.error("[Bounty] init failed:", e?.message ?? e);
+  }
+
+  try {
+    const { startPartnerOutreach } = await import("./skills/partnerOutreach.js");
+    startPartnerOutreach();
+  } catch (e: any) {
+    console.error("[Outreach] init failed:", e?.message ?? e);
+  }
+
+  if (ADMIN_CHAT_ID) {
+    try {
+      const { getTelegramBot } = await import("./telegramBot.js");
+      const bot = getTelegramBot();
+      if (bot) {
+        const { startNewTokenScanner } = await import("./skills/newTokenScanner.js");
+        startNewTokenScanner(
+          (chatId, text) => bot.telegram.sendMessage(chatId, text),
+          ADMIN_CHAT_ID
+        );
+      }
+    } catch (e: any) {
+      console.error("[Scanner] init failed:", e?.message ?? e);
+    }
+  } else {
+    console.log("[Scanner] ADMIN_CHAT_ID not set; 새 토큰 알림 비활성");
+  }
+}, 30000); // 30초 후 시작
