@@ -144,3 +144,22 @@ createServer(async (req, res) => {
 }).listen(PORT, () => {
   console.log(`[http] Resource API listening on port ${PORT}`);
 });
+
+// Telegram start point (single entry): only when explicitly enabled.
+if (process.env.TELEGRAM_ENABLED === "1") {
+  const delayMs = Number(process.env.TELEGRAM_START_DELAY_MS ?? 15000);
+  const safeDelayMs = Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 15000;
+  console.log(`[Telegram] scheduled start in ${safeDelayMs}ms`);
+  const timer = setTimeout(async () => {
+    try {
+      const mod = await import("./telegramBot.js");
+      await mod.startTelegramBot?.();
+    } catch (err: any) {
+      // Non-fatal by requirement: HTTP/resource server must keep running.
+      console.error("[Telegram] start failed (non-fatal):", String(err?.message ?? err));
+    }
+  }, safeDelayMs);
+  (timer as any).unref?.();
+} else {
+  console.log("[Telegram] disabled (TELEGRAM_ENABLED!=1)");
+}
