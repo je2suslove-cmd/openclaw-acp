@@ -106,7 +106,65 @@ function registerHandlers(bot: Telegraf<Context>) {
     }
   });
 
-  // /receipt <addr> [chainId]
+  // /goplus <addr> [chainId]
+  bot.command("goplus", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "goplus");
+    const [address, chainId] = rest.split(/\\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /goplus <tokenAddress> [chainId(1/56/8453)]");
+    try {
+      await ctx.reply("GoPlus 스캔 중...");
+      const { checkGoPlus, formatGoPlus } = await import("./skills/goplus.js");
+      const r = await checkGoPlus(address, chainId ?? "1");
+      await ctx.reply(clip(formatGoPlus(r)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /goplus 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /solana <mint>
+  bot.command("solana", async (ctx: any) => {
+    const mint = argsAfter(getMsgText(ctx), "solana");
+    if (!mint) return ctx.reply("사용법: /solana <mintAddress>");
+    try {
+      await ctx.reply("Solana RugCheck 스캔 중...");
+      const { checkSolana, formatRugCheck } = await import("./skills/rugcheck.js");
+      const r = await checkSolana(mint);
+      await ctx.reply(clip(formatRugCheck(r)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /solana 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /goplus <addr> [chainId]
+  bot.command("goplus", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "goplus");
+    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /goplus <tokenAddress> [chainId(1/56/8453)]");
+    try {
+      await ctx.reply("GoPlus 스캔 중...");
+      const { checkGoPlus, formatGoPlus } = await import("./skills/goplus.js");
+      const r = await checkGoPlus(address, chainId ?? "1");
+      await ctx.reply(clip(formatGoPlus(r)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /goplus 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /solana <mint>
+  bot.command("solana", async (ctx: any) => {
+    const mint = argsAfter(getMsgText(ctx), "solana");
+    if (!mint) return ctx.reply("사용법: /solana <mintAddress>");
+    try {
+      await ctx.reply("Solana RugCheck 스캔 중...");
+      const { checkSolana, formatRugCheck } = await import("./skills/rugcheck.js");
+      const r = await checkSolana(mint);
+      await ctx.reply(clip(formatRugCheck(r)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /solana 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /receipt <addr> [chainId] [chainId]
   bot.command("receipt", async (ctx: any) => {
     const rest = argsAfter(getMsgText(ctx), "receipt");
     const [address, chainId] = rest.split(/\s+/).filter(Boolean);

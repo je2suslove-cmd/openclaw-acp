@@ -1,5 +1,6 @@
-import { checkHoneypot } from "../../../src/skills/risk.js";
-import { buildReceipt } from "../../../src/types/receipt.js";
+import type { ExecuteJobResult } from "../../../runtime/offeringTypes.js";
+import { checkHoneypot } from "../../../../skills/risk.js";
+import { buildReceipt } from "../../../../types/receipt.js";
 
 const CHAIN_MAP: Record<string, { name: string; chainId: number }> = {
   base: { name: "base", chainId: 8453 },
@@ -18,7 +19,7 @@ const EXECUTORS: Record<string, { name: string; wallet: string; job: string }> =
   bsc: { name: "safebase", wallet: "0x73658eEB3045916Ff4B5277bBAE3bf1be5616588", job: "safe_swap" },
 };
 
-export async function executeJob(requirements: any) {
+export async function executeJob(requirements: any): Promise<ExecuteJobResult> {
   const { tokenAddress, chain = "base", amount, fromToken } = requirements;
   const chainInfo = CHAIN_MAP[chain] ?? CHAIN_MAP.base;
 
@@ -36,10 +37,15 @@ export async function executeJob(requirements: any) {
 
   const receipt = buildReceipt(tokenAddress, chainInfo.name, chainInfo.chainId, risk);
 
-  let execution_handoff = null;
+  const output: any = {
+    decision: receipt.decision,
+    score: receipt.score,
+    receipt,
+  };
+
   if (receipt.decision === "PASS") {
     const executor = EXECUTORS[chain] ?? EXECUTORS.base;
-    execution_handoff = {
+    output.execution_handoff = {
       recommended_executor: executor.name,
       executor_wallet: executor.wallet,
       job_name: executor.job,
@@ -54,12 +60,6 @@ export async function executeJob(requirements: any) {
   }
 
   return {
-    deliverable: {
-      decision: receipt.decision,
-      score: receipt.score,
-      receipt,
-      ...(execution_handoff ? { execution_handoff } : {}),
-    },
-    payableDetail: null,
+    deliverable: JSON.stringify(output, null, 2),
   };
 }
