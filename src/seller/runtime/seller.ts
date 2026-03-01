@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+import { recordJobResult } from "../../skills/failureGuard.js";
 // =============================================================================
 // Seller runtime — main entrypoint.
 //
@@ -185,8 +186,10 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
           payableDetail: result.payableDetail,
         });
         console.log(`[seller] Job ${jobId} — delivered.`);
+        recordJobResult(true);
       } catch (err) {
         console.error(`[seller] Error delivering job ${jobId}:`, err);
+        recordJobResult(false);
       }
     } else {
       console.log(`[seller] Job ${jobId} in TRANSACTION but no offering resolved — skipping`);

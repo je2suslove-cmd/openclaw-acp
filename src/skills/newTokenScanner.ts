@@ -40,7 +40,7 @@ export function startNewTokenScanner(
         // 최대 5개씩
         seenTokens.add(addr.toLowerCase());
         if (seenTokens.size > 500) {
-          const first = seenTokens.values().next().value;
+          const first = seenTokens.values().next().value as string;
           seenTokens.delete(first);
         }
 
