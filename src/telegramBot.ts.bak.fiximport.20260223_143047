@@ -1,0 +1,66 @@
+import { Telegraf } from 'telegraf';
+import { startTaskOps } from "./taskOps";
+import 'dotenv/config';
+
+export function startTelegramBot() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  
+  if (!token) {
+    console.warn("⚠️ [Telegram] TELEGRAM_BOT_TOKEN이 없어 봇을 실행하지 않습니다.");
+    return;
+  }
+
+  const bot = new Telegraf(token);
+
+
+  const ops = startTaskOps({
+    bot,
+    runAgent: async (prompt: string, meta: { userId: string }) => {
+      // TODO: 여기만 나중에 '진짜 AI 호출'로 교체
+      return `echo: ${prompt}`;
+    },
+  });
+
+  ops.startNightlyScheduler();
+
+  bot.command("me", async (ctx) => {
+    await ctx.reply(`chatId=${ctx.chat.id}\nuserId=${ctx.from?.id ?? "?"}`);
+  });
+
+  // 네가 /ME로 치는 습관 있으면 이것도 잡아줌(대문자 커맨드)
+  bot.command("ME", async (ctx) => {
+    await ctx.reply(`chatId=${ctx.chat.id}\nuserId=${ctx.from?.id ?? "?"}`);
+  });
+
+  bot.command("do", async (ctx) => {
+    const text = ctx.message.text ?? "";
+    const prompt = text.replace(/^\/do(\s+)?/, "").trim();
+    if (!prompt) return ctx.reply("사용법: /do <밤새 돌릴 작업>");
+
+    await ops.enqueueTask({
+      chatId: ctx.chat.id,
+      userId: String(ctx.from?.id ?? "unknown"),
+      prompt,
+      label: "do",
+    });
+  });
+
+  bot.command("q", async (ctx) => {
+    await ctx.reply(`queue size=${ops.queue.size}, pending=${ops.queue.pending}`);
+  });
+
+  bot.start((ctx) => ctx.reply('안녕하세요! SuicaTap 에이전트입니다. 🤖\n(서버 1대에서 ACP와 텔레그램이 동시에 구동 중입니다!)'));
+
+  bot.on('text', (ctx) => {
+    ctx.reply(`[SuicaTap 수신] ${ctx.message.text}\n(아직 뇌와 연결 중입니다!)`);
+  });
+
+  bot.launch().then(() => {
+    console.log("✅ [Telegram] 봇이 백그라운드에서 성공적으로 실행되었습니다.");
+  }).catch(err => {
+    console.error("🚨 [Telegram] 봇 실행 에러:", err);
+  });
+
+  process.once('SIGINT', () => bot.stop('SIGINT'));
+  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+}

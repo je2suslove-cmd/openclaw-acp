@@ -1,0 +1,401 @@
+import { Telegraf } from 'telegraf';
+import { startTaskOps } from "./taskOps.js";
+import 'dotenv/config';
+import axios from "axios";
+import { geminiGenerate } from "./llm/gemini.js";
+import { checkHoneypot, formatRisk } from "./skills/risk.js";
+import { watchAdd, watchRemove, watchList, startWatchLoop } from "./skills/watch.js";
+import { makeReceipt } from "./skills/receipt.js";
+
+
+async function sleep(ms: number) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+async function launchWithRetry(bot: any) {
+  let attempt = 0;
+  while (true) {
+    try {
+      await bot.launch();
+console.log("[Telegram] bot launched");
+      break;
+    } catch (err: any) {
+      const code = err?.error_code;
+      const msg = err?.description || err?.message || String(err);
+      if (code === 409 || msg.includes("getUpdates") || msg.includes("Conflict")) {
+        attempt += 1;
+        const delay = Math.min(60000, 5000 * Math.pow(2, attempt - 1));
+        console.log(`[Telegram] 409 conflict; retry in ${delay}ms (attempt ${attempt})`);
+        await sleep(delay);
+        continue;
+      }
+      throw err;
+    }
+  }
+  process.once("SIGINT", () => bot.stop("SIGINT"));
+  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+}
+
+export function startTelegramBot() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  
+  if (!token) {
+    console.warn("⚠️ [Telegram] TELEGRAM_BOT_TOKEN이 없어 봇을 실행하지 않습니다.");
+    return;
+  }
+
+  const bot = new Telegraf(token);
+
+// --- compaction middleware (auto) ---
+const SUICATAP_SYSTEM = [
+  "You are SuicaTap, a crypto risk assistant.",
+  "Be concise, practical, and safety-first.",
+  "If user asks for trading advice, give risk factors and safer alternatives; avoid overconfident predictions."
+].join(" ");
+
+function clipTelegram(text: string, max = 3500): string {
+  const t = (text ?? "").toString();
+  return t.length > max ? t.slice(0, max - 20) + "\n...(truncated)" : t;
+}
+
+function getText(ctx: any): string {
+  const m = ctx?.message;
+  return m && typeof m.text === "string" ? m.text : "";
+}
+
+function isCmd(text: string, cmd: string): boolean {
+  return new RegExp("^\\/" + cmd + "(?:@\\w+)?(?:\\s|$)").test(text.trim());
+}
+
+function argsAfter(text: string, cmd: string): string {
+  return text.replace(new RegExp("^\\/" + cmd + "(?:@\\w+)?\\s*"), "").trim();
+}
+
+async function summarizeForCompaction(input: string, targetChars: number): Promise<string> {
+  // compaction은 되도록 짧게/저렴하게
+  const model = process.env.GEMINI_COMPACT_MODEL || process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+  const out = await geminiGenerate(input, {
+    systemInstruction: "You are a compactor. Output Korean bullet summary only. No preamble.",
+    model,
+    maxInputChars: 12000,
+    timeoutMs: 25000,
+    retries: 2,
+  });
+  const t = (out ?? "").toString().trim();
+  return t.length > targetChars ? t.slice(0, targetChars - 20) + "\n...(clipped)" : t;
+}
+
+bot.use(async (ctx: any, next: any) => {
+  const text = getText(ctx);
+  if (!text) return next();
+
+  // /do (LLM)
+  if (isCmd(text, "do")) {
+    const chatId = ctx?.chat?.id;
+    const userText = argsAfter(text, "do");
+    if (!userText) return ctx.reply("사용법: /do <텍스트>");
+
+    try {
+      // 1) user turn 기록
+      appendTurn(chatId, "user", userText);
+
+      // 2) 자동 컴팩션(필요할 때만, 사용자에게는 조용히)
+      await compactIfNeeded(chatId, summarizeForCompaction);
+
+      // 3) 요약+최근 컨텍스트로 프롬프트 구성
+      const ctxText = renderContext(chatId);
+      const prompt = [
+        "You are chatting with a user on Telegram.",
+        "Use the SUMMARY and RECENT context if provided.",
+        "",
+        ctxText ? ctxText : "",
+        "",
+        "Now answer the user's latest message.",
+        "User:", userText
+      ].join("\n");
+
+      await ctx.reply("접수 → 작업시작");
+      const ans = await geminiGenerate(prompt, {
+        systemInstruction: SUICATAP_SYSTEM,
+        model: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
+        timeoutMs: 25000,
+        retries: 2,
+        maxInputChars: 12000,
+      });
+
+      const safe = clipTelegram(ans || "(empty)");
+      appendTurn(chatId, "assistant", safe);
+      await ctx.reply(safe);
+      await ctx.reply("완료");
+    } catch {
+      await ctx.reply("오류: /do 실패(키/레이트리밋/네트워크). GEMINI_API_KEY 설정 확인.");
+    }
+    return; // 기존 /do 핸들러로 넘어가지 않게 차단
+  }
+
+  // /compact (수동 compaction)
+  if (isCmd(text, "compact")) {
+    const chatId = ctx?.chat?.id;
+    try {
+      const r = await compactIfNeeded(chatId, summarizeForCompaction);
+      await ctx.reply(r.compacted ? "✅ compaction 완료" : "ℹ️ 아직 compaction 불필요(컨텍스트 작음)");
+      if (r.summary) await ctx.reply(clipTelegram("[SUMMARY]\n" + r.summary, 3500));
+    } catch {
+      await ctx.reply("오류: compaction 실패");
+    }
+    return;
+  }
+
+  // /ctx (디버그 상태)
+  if (isCmd(text, "ctx")) {
+    const chatId = ctx?.chat?.id;
+    const st = getChatStatus(chatId);
+    return ctx.reply(clipTelegram(JSON.stringify(st, null, 2), 3500));
+  }
+
+  return next();
+});
+
+
+  // --- SuicaTap LLM + skills (auto inserted) ---
+
+  function clipTelegram(text: string, max = 3500): string {
+
+    const t = (text ?? "").toString();
+
+    return t.length > max ? t.slice(0, max - 20) + "\n...(truncated)" : t;
+
+  }
+
+
+  function getMsgText(ctx: any): string {
+
+    const m = ctx?.message;
+
+    return m && typeof m.text === "string" ? m.text : "";
+
+  }
+
+
+  function argsAfterCmd(full: string): string {
+
+    return full.replace(/^\s*\/\w+\s*/,"").trim();
+
+  }
+
+
+  async function runAgentLLM(userText: string): Promise<string> {
+
+    const out = await geminiGenerate(userText, { systemInstruction: SUICATAP_SYSTEM });
+
+    return clipTelegram(out);
+
+  }
+
+
+  // /do
+
+  bot.command("do", async (ctx: any) => {
+
+    const text = argsAfterCmd(getMsgText(ctx));
+
+    if (!text) return ctx.reply("사용법: /do <텍스트>");
+
+    try {
+
+      await ctx.reply("접수 → 작업시작");
+
+      const out = await runAgentLLM(text);
+
+      await ctx.reply(out);
+
+      await ctx.reply("완료");
+
+    } catch {
+
+      await ctx.reply("오류: LLM 호출 실패(레이트리밋/네트워크/키 설정 확인).");
+
+    }
+
+  });
+
+
+  // /risk <addr> [chainId]
+
+  bot.command("risk", async (ctx: any) => {
+
+    const rest = argsAfterCmd(getMsgText(ctx));
+
+    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
+
+    if (!address) return ctx.reply("사용법: /risk <tokenAddress> [chainId]");
+
+    try {
+
+      const r = await checkHoneypot(address, chainId);
+
+      await ctx.reply(clipTelegram(formatRisk(r)));
+
+    } catch {
+
+      await ctx.reply("오류: /risk 실패. 주소/체인ID 확인 또는 잠시 후 재시도.");
+
+    }
+
+  });
+
+
+  // /receipt
+
+  bot.command("receipt", async (ctx: any) => {
+
+    const rest = argsAfterCmd(getMsgText(ctx));
+
+    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
+
+    if (!address) return ctx.reply("사용법: /receipt <tokenAddress> [chainId]");
+
+    try {
+
+      const json = await makeReceipt(address, chainId);
+
+      await ctx.reply(clipTelegram("```json\n" + json + "\n```"));
+
+    } catch {
+
+      await ctx.reply("오류: receipt 생성 실패. 잠시 후 재시도.");
+
+    }
+
+  });
+
+
+  // /watch add|del|list
+
+  bot.command("watch", async (ctx: any) => {
+
+    const rest = argsAfterCmd(getMsgText(ctx));
+
+    const [sub, a1, a2] = rest.split(/\s+/).filter(Boolean);
+
+    const chatId = ctx?.chat?.id;
+
+    const s = (sub || "list").toLowerCase();
+
+    if (s === "list") {
+
+      const items = watchList(chatId);
+
+      return ctx.reply(items.length ? "📌 watchlist:\n- " + items.join("\n- ") : "watchlist 비어있음. 예: /watch add <addr> [chainId]");
+
+    }
+
+    if (s === "add") {
+
+      if (!a1) return ctx.reply("사용법: /watch add <tokenAddress> [chainId]");
+
+      const k = watchAdd(chatId, a1, a2);
+
+      return ctx.reply("✅ watch 등록: " + k);
+
+    }
+
+    if (s === "del" || s === "remove") {
+
+      if (!a1) return ctx.reply("사용법: /watch del <tokenAddress> [chainId]");
+
+      const ok = watchRemove(a1, a2);
+
+      return ctx.reply(ok ? "🗑️ watch 제거 완료" : "해당 watch 없음");
+
+    }
+
+    return ctx.reply("사용법: /watch add|del|list ...");
+
+  });
+
+
+  // watch loop (1회만)
+
+  startWatchLoop(async (chatId: any, text: string) => bot.telegram.sendMessage(chatId, clipTelegram(text)));
+
+
+
+  const ops = startTaskOps({
+    bot,
+    runAgent: async (prompt: string, meta: { userId: string }) => {
+      // TODO: 여기만 나중에 '진짜 AI 호출'로 교체
+      return `echo: ${prompt}`;
+    },
+  });
+
+  ops.startNightlyScheduler();
+  bot.command("risk", async (ctx) => {
+    const text = ctx.message?.text ?? "";
+    const tokenAddress = text.trim().split(/\s+/)[1];
+    if (!tokenAddress) {
+      await ctx.reply("사용법: /risk <tokenAddress>");
+      return;
+    }
+
+    const port = process.env.PORT ?? "8080";
+    const base = process.env.SELF_BASE_URL ?? `http://127.0.0.1:${port}`;
+
+    try {
+      const { data } = await axios.get(`${base}/r/risk`, {
+        params: { tokenAddress },
+        timeout: 15000,
+      });
+
+      const out = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      const safe = out.length > 3500 ? out.slice(0, 3500) + "\n…(truncated)" : out;
+
+      await ctx.reply(`risk(\${tokenAddress}):\n\n\${safe}`);
+    } catch (err) {
+      await ctx.reply("리스크 조회 실패. 잠시 후 다시 시도해줘.");
+    }
+  });
+
+
+  bot.command("me", async (ctx) => {
+    await ctx.reply(`chatId=${ctx.chat.id}\nuserId=${ctx.from?.id ?? "?"}`);
+  });
+
+  // 네가 /ME로 치는 습관 있으면 이것도 잡아줌(대문자 커맨드)
+  bot.command("ME", async (ctx) => {
+    await ctx.reply(`chatId=${ctx.chat.id}\nuserId=${ctx.from?.id ?? "?"}`);
+  });
+
+  bot.command("do", async (ctx) => {
+    const text = ctx.message.text ?? "";
+    const prompt = text.replace(/^\/do(\s+)?/, "").trim();
+    if (!prompt) return ctx.reply("사용법: /do <밤새 돌릴 작업>");
+
+    await ops.enqueueTask({
+      chatId: ctx.chat.id,
+      userId: String(ctx.from?.id ?? "unknown"),
+      prompt,
+      label: "do",
+    });
+  });
+
+  bot.command("q", async (ctx) => {
+    const { size, pending } = ops.getQueueStats();
+    await ctx.reply(`queue size=${size}, pending=${pending}`);
+  });
+
+  bot.start((ctx) => ctx.reply('안녕하세요! SuicaTap 에이전트입니다. 🤖\n(서버 1대에서 ACP와 텔레그램이 동시에 구동 중입니다!)'));
+
+  bot.on('text', (ctx) => {
+    ctx.reply(`[SuicaTap 수신] ${ctx.message.text}\n(아직 뇌와 연결 중입니다!)`);
+  });
+
+  launchWithRetry(bot).then(() => {
+    console.log("✅ [Telegram] 봇이 백그라운드에서 성공적으로 실행되었습니다.");
+  }).catch(err => {
+    console.error("🚨 [Telegram] 봇 실행 에러:", err);
+  });
+
+  process.once('SIGINT', () => bot.stop('SIGINT'));
+  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+}

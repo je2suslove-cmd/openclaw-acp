@@ -1,0 +1,289 @@
+import { Telegraf } from "telegraf";
+import { startTaskOps } from "./taskOps.js";
+import "dotenv/config";
+import { geminiGenerate } from "./llm/gemini.js";
+import { checkHoneypot, formatRisk } from "./skills/risk.js";
+import { watchAdd, watchRemove, watchList, startWatchLoop } from "./skills/watch.js";
+import { makeReceipt } from "./skills/receipt.js";
+
+// ─────────────────────────────────────────────
+// 1) 상수
+// ─────────────────────────────────────────────
+const SUICATAP_SYSTEM = [
+  "You are SuicaTap, a crypto risk assistant.",
+  "Be concise, practical, and safety-first.",
+  "If user asks for trading advice, give risk factors and safer alternatives.",
+].join(" ");
+
+// ─────────────────────────────────────────────
+// 2) 인메모리 컨텍스트 저장소
+// ─────────────────────────────────────────────
+interface Turn { role: "user" | "assistant"; text: string; ts: number }
+interface ChatState { turns: Turn[]; summary: string; compactedAt: number | null }
+
+const chatStore = new Map<number, ChatState>();
+
+function getState(chatId: number): ChatState {
+  if (!chatStore.has(chatId)) chatStore.set(chatId, { turns: [], summary: "", compactedAt: null });
+  return chatStore.get(chatId)!;
+}
+
+function appendTurn(chatId: number, role: "user" | "assistant", text: string) {
+  const st = getState(chatId);
+  st.turns.push({ role, text, ts: Date.now() });
+  if (st.turns.length > 40) st.turns = st.turns.slice(-30);
+}
+
+function renderContext(chatId: number): string {
+  const st = getState(chatId);
+  const parts: string[] = [];
+  if (st.summary) parts.push("[SUMMARY]\n" + st.summary);
+  if (st.turns.length) {
+    parts.push("[RECENT]\n" + st.turns.slice(-10).map(t => `${t.role}: ${t.text}`).join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
+function getChatStatus(chatId: number): object {
+  const st = getState(chatId);
+  return {
+    chatId,
+    turns: st.turns.length,
+    summaryLen: st.summary.length,
+    compactedAt: st.compactedAt,
+    lastTurns: st.turns.slice(-3).map(t => ({ role: t.role, len: t.text.length })),
+  };
+}
+
+async function compactIfNeeded(
+  chatId: number,
+  summarize: (input: string, targetChars: number) => Promise<string>
+): Promise<{ compacted: boolean; summary?: string }> {
+  const st = getState(chatId);
+  const totalChars = st.turns.reduce((s, t) => s + t.text.length, 0);
+  if (totalChars < 6000) return { compacted: false };
+
+  const input = [
+    st.summary ? "[PREV SUMMARY]\n" + st.summary : "",
+    "[TURNS]\n" + st.turns.map(t => `${t.role}: ${t.text}`).join("\n"),
+  ].filter(Boolean).join("\n\n");
+
+  const summary = await summarize(input, 1200);
+  st.summary = summary;
+  st.turns = [];
+  st.compactedAt = Date.now();
+  return { compacted: true, summary };
+}
+
+// ─────────────────────────────────────────────
+// 3) 헬퍼
+// ─────────────────────────────────────────────
+function clip(text: string, max = 3500): string {
+  const t = (text ?? "").toString();
+  return t.length > max ? t.slice(0, max - 20) + "\n...(truncated)" : t;
+}
+
+function getMsgText(ctx: any): string {
+  const m = ctx?.message;
+  return m && typeof m.text === "string" ? m.text : "";
+}
+
+function argsAfter(text: string, cmd: string): string {
+  return text.replace(new RegExp("^\/" + cmd + "(?:@\\w+)?\\s*"), "").trim();
+}
+
+async function summarizeForCompaction(input: string, targetChars: number): Promise<string> {
+  const out = await geminiGenerate(input, {
+    systemInstruction: "You are a compactor. Output Korean bullet summary only. No preamble.",
+    model: process.env.GEMINI_COMPACT_MODEL || process.env.GEMINI_MODEL || "gemini-2.0-flash",
+    maxInputChars: 12000,
+    timeoutMs: 25000,
+    retries: 2,
+  });
+  const t = (out ?? "").toString().trim();
+  return t.length > targetChars ? t.slice(0, targetChars - 20) + "\n...(clipped)" : t;
+}
+
+async function sleep(ms: number) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+async function launchWithRetry(bot: Telegraf) {
+  let attempt = 0;
+  while (true) {
+    try {
+      // 409 방지: 시작 전 webhook 제거 + pending updates 버림
+      await (bot.telegram as any).deleteWebhook({ drop_pending_updates: true }).catch(() => {});
+      await bot.launch();
+      console.log("[Telegram] bot launched");
+      break;
+    } catch (err: any) {
+      const code = err?.error_code;
+      const msg = err?.description || err?.message || String(err);
+      if (code === 409 || msg.includes("getUpdates") || msg.includes("Conflict")) {
+        attempt += 1;
+        const delay = Math.min(60000, 5000 * Math.pow(2, attempt - 1));
+        console.log(`[Telegram] 409 conflict; retry in ${delay}ms (attempt ${attempt})`);
+        await sleep(delay);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// 4) 메인 export
+// ─────────────────────────────────────────────
+export function startTelegramBot() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    console.warn("[Telegram] TELEGRAM_BOT_TOKEN 없음 — 봇 실행 안함");
+    return;
+  }
+
+  const bot = new Telegraf(token);
+
+  const ops = startTaskOps({
+    bot,
+    runAgent: async (prompt: string, _meta: { userId: string }) => {
+      return await geminiGenerate(prompt, {
+        systemInstruction: SUICATAP_SYSTEM,
+        model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+        timeoutMs: 25000,
+        retries: 2,
+        maxInputChars: 12000,
+      });
+    },
+  });
+  ops.startNightlyScheduler();
+
+  // watch loop
+  startWatchLoop(async (chatId: any, text: string) =>
+    bot.telegram.sendMessage(chatId, clip(text))
+  );
+
+  // ── /start ──
+  bot.start((ctx) =>
+    ctx.reply("안녕하세요! SuicaTap 에이전트입니다. 🍉\n/do /risk /receipt /watch /ctx /q 사용 가능")
+  );
+
+  // ── /me ──
+  bot.command("me", async (ctx) => {
+    await ctx.reply(`chatId=${ctx.chat.id}\nuserId=${ctx.from?.id ?? "?"}`);
+  });
+
+  // ── /do <텍스트> ──
+  bot.command("do", async (ctx: any) => {
+    const text = getMsgText(ctx);
+    const userText = argsAfter(text, "do");
+    const chatId = ctx?.chat?.id;
+    if (!userText) return ctx.reply("사용법: /do <텍스트>");
+    try {
+      appendTurn(chatId, "user", userText);
+      await compactIfNeeded(chatId, summarizeForCompaction);
+      const ctxText = renderContext(chatId);
+      const prompt = [ctxText, "User:", userText].filter(Boolean).join("\n");
+      await ctx.reply("접수 → 작업시작");
+      const ans = await geminiGenerate(prompt, {
+        systemInstruction: SUICATAP_SYSTEM,
+        model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+        timeoutMs: 25000,
+        retries: 2,
+        maxInputChars: 12000,
+      });
+      const safe = clip(ans || "(empty)");
+      appendTurn(chatId, "assistant", safe);
+      await ctx.reply(safe);
+      await ctx.reply("완료");
+    } catch {
+      await ctx.reply("오류: /do 실패. GEMINI_API_KEY 확인.");
+    }
+  });
+
+  // ── /risk <addr> [chainId] ──
+  bot.command("risk", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "risk");
+    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /risk <tokenAddress> [chainId]");
+    try {
+      const r = await checkHoneypot(address, chainId);
+      await ctx.reply(clip(formatRisk(r)));
+    } catch {
+      await ctx.reply("오류: /risk 실패. 주소/체인 확인.");
+    }
+  });
+
+  // ── /receipt <addr> [chainId] ──
+  bot.command("receipt", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "receipt");
+    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /receipt <tokenAddress> [chainId]");
+    try {
+      const json = await makeReceipt(address, chainId);
+      await ctx.reply(clip("```json\n" + json + "\n```"));
+    } catch {
+      await ctx.reply("오류: receipt 생성 실패.");
+    }
+  });
+
+  // ── /watch add|del|list ──
+  bot.command("watch", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "watch");
+    const [sub, a1, a2] = rest.split(/\s+/).filter(Boolean);
+    const chatId = ctx?.chat?.id;
+    const s = (sub || "list").toLowerCase();
+    if (s === "list") {
+      const items = watchList(chatId);
+      return ctx.reply(items.length ? "📌 watchlist:\n- " + items.join("\n- ") : "watchlist 비어있음");
+    }
+    if (s === "add") {
+      if (!a1) return ctx.reply("사용법: /watch add <tokenAddress> [chainId]");
+      const k = watchAdd(chatId, a1, a2);
+      return ctx.reply("✅ watch 등록: " + k);
+    }
+    if (s === "del" || s === "remove") {
+      if (!a1) return ctx.reply("사용법: /watch del <tokenAddress>");
+      const ok = watchRemove(a1, a2);
+      return ctx.reply(ok ? "🗑️ watch 제거 완료" : "해당 watch 없음");
+    }
+    return ctx.reply("사용법: /watch add|del|list ...");
+  });
+
+  // ── /compact (수동) ──
+  bot.command("compact", async (ctx: any) => {
+    const chatId = ctx?.chat?.id;
+    try {
+      const r = await compactIfNeeded(chatId, summarizeForCompaction);
+      await ctx.reply(r.compacted ? "✅ compaction 완료" : "ℹ️ compaction 불필요");
+      if (r.summary) await ctx.reply(clip("[SUMMARY]\n" + r.summary));
+    } catch {
+      await ctx.reply("오류: compaction 실패");
+    }
+  });
+
+  // ── /ctx (디버그) ──
+  bot.command("ctx", async (ctx: any) => {
+    const chatId = ctx?.chat?.id;
+    const st = getChatStatus(chatId);
+    await ctx.reply(clip(JSON.stringify(st, null, 2)));
+  });
+
+  // ── /q (큐 상태) ──
+  bot.command("q", async (ctx) => {
+    const { size, pending } = ops.getQueueStats();
+    await ctx.reply(`queue size=${size}, pending=${pending}`);
+  });
+
+  // ── fallback ──
+  bot.on("text", (ctx) => {
+    ctx.reply("명령어: /do /risk /receipt /watch /ctx /compact /q /me");
+  });
+
+  launchWithRetry(bot)
+    .then(() => console.log("✅ [Telegram] 봇 실행 완료"))
+    .catch((err) => console.error("🚨 [Telegram] 봇 실행 실패:", err?.message || err));
+
+  process.once("SIGINT", () => bot.stop("SIGINT"));
+  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+}
