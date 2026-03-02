@@ -1,6 +1,6 @@
 {
   "name": "suicatap_ping_free",
-  "description": "Low-cost health ping for SuicaTap runtime. Returns OK immediately. Use to verify uptime before buying scans.",
+  "description": "Health check ping for SuicaTap. Returns OK if online. Use before calling other offerings.",
   "jobFee": 0.01,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
@@ -11,5 +11,6 @@
     "required": []
   },
   "jobInput": "Ping SuicaTap to check if it's online",
-  "jobOutput": "OK \u2014 SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.20) for safe swap routing."
+  "jobOutput": "OK — SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.20) for safe swap routing.",
+  "price": 0.01
 }

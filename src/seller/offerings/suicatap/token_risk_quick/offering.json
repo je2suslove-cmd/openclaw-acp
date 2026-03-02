@@ -1,7 +1,7 @@
 {
   "name": "token_risk_quick",
-  "description": "Token risk / rug check / honeypot screening (Base/EVM). Input: tokenAddress. Output: verdict + top flags + receipt URL.\n\n\u2705 After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.",
-  "jobFee": 0.03,
+  "description": "Quick token risk screening (honeypot, rug pull, tax) on Base/ETH/BSC. Returns structured JSON with verdict and risk level.",
+  "jobFee": 0.05,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
   "requiredFunds": false,
@@ -22,5 +22,6 @@
   },
   "hide": true,
   "jobInput": "Quick risk scan of token 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 on Base",
-  "jobOutput": "{\"type\":\"suicatap_token_risk_quick_v1\",\"value\":{\"verdict\":\"PASS\",\"emoji\":\"\ud83d\udfe2\",\"riskLevel\":1,\"honeypot\":false,\"liqUsd\":9800000}}"
+  "jobOutput": "{\"type\":\"suicatap_token_risk_quick_v1\",\"value\":{\"verdict\":\"PASS\",\"emoji\":\"🟢\",\"riskLevel\":1,\"honeypot\":false,\"liqUsd\":9800000}}",
+  "price": 0.05
 }

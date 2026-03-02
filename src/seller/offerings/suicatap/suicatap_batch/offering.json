@@ -1,7 +1,7 @@
 {
   "name": "suicatap_batch",
-  "description": "SuicaTap Batch Scan (Base) \u2014 Scan up to 5 tokens at once. Get beep verdict (\ud83d\udfe2\ud83d\udfe1\ud83d\udd34) + honeypot/tax/liquidity for each token in one request. Includes JSON receipt for all tokens. Cheaper than scanning one by one.",
-  "jobFee": 0.1,
+  "description": "Batch scan up to 5 tokens at once on Base/ETH/BSC. Returns risk verdict for each token in a single call.",
+  "jobFee": 0.15,
   "jobFeeType": "fixed",
   "slaMinutes": 10,
   "requiredFunds": false,
@@ -21,5 +21,6 @@
   },
   "hide": true,
   "jobInput": "Batch risk scan: check 3 tokens on Base at once",
-  "jobOutput": "{\"results\":[{\"address\":\"0x833589...\",\"decision\":\"PASS\",\"score\":99},{\"address\":\"0x4200...\",\"decision\":\"PASS\",\"score\":98}],\"summary\":\"2/2 PASS\"}"
+  "jobOutput": "{\"results\":[{\"address\":\"0x833589...\",\"decision\":\"PASS\",\"score\":99},{\"address\":\"0x4200...\",\"decision\":\"PASS\",\"score\":98}],\"summary\":\"2/2 PASS\"}",
+  "price": 0.15
 }
