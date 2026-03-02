@@ -94,15 +94,32 @@ function registerHandlers(bot: Telegraf<Context>) {
     }
   });
 
-  // /risk <addr> [chainId]
+  // /risk <addr> [chain]
   bot.command("risk", async (ctx: any) => {
     const rest = argsAfter(getMsgText(ctx), "risk");
-    const [address, chainId] = rest.split(/\s+/).filter(Boolean);
-    if (!address) return ctx.reply("사용법: /risk <tokenAddress> [chainId]");
+    const [address, chain] = rest.split(/\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /risk <tokenAddress> [base|eth|bsc]");
     try {
       await ctx.reply("스캔 중...");
-      const r = await checkHoneypot(address, chainId);
-      await ctx.reply(clip(formatRisk(r)));
+      const chainParam = chain ?? "base";
+      const url = `https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=${address}&chain=${chainParam}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const d: any = await res.json();
+      const risk = d?.risk ?? {};
+      const token = d?.token ?? {};
+      const beep = risk?.beep ?? "🟡";
+      const lines = [
+        `${beep} ${token?.symbol ?? address.slice(0, 8)} (${chainParam})`,
+        `• honeypot=${risk?.isHoneypot ?? "?"}`,
+        `• tax(buy/sell)=${risk?.buyTax ?? 0}%/${risk?.sellTax ?? 0}%`,
+        `• liquidity=$${(risk?.liqUsd ?? 0).toLocaleString()}`,
+        `• riskLevel=${risk?.riskLevel ?? "?"}`,
+        `• reasons=${(risk?.reasons ?? []).join(", ") || "none"}`,
+        ``,
+        `🍉 SuicaTap | execution_gate $0.30 | report $0.35`,
+      ];
+      await ctx.reply(clip(lines.join("\n")));
     } catch (e: any) {
       await ctx.reply(`오류: /risk 실패 — ${String(e?.message || e)}`);
     }
