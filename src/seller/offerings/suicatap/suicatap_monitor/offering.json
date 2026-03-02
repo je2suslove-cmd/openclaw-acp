@@ -1,6 +1,6 @@
 {
   "name": "suicatap_monitor",
-  "description": "SuicaTap Monitor — Token risk snapshot with change alert. Scan a token and get current risk status + suggested re-check interval. Supports Base, Ethereum, BSC. Use periodically to track risk changes over time. Includes JSON receipt.",
+  "description": "SuicaTap Monitor \u2014 Token risk snapshot with change alert. Scan a token and get current risk status + suggested re-check interval. Supports Base, Ethereum, BSC. Use periodically to track risk changes over time. Includes JSON receipt.",
   "jobFee": 0.05,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
@@ -21,9 +21,11 @@
       },
       "previousBeep": {
         "type": "string",
-        "enum": ["🟢", "🟡", "🔴", ""],
+        "enum": ["\ud83d\udfe2", "\ud83d\udfe1", "\ud83d\udd34", ""],
         "description": "Optional: previous beep result to detect changes"
       }
     }
-  }
+  },
+  "jobInput": "Start monitoring 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 for risk changes on Base",
+  "jobOutput": "{\"status\":\"watching\",\"address\":\"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\",\"chain\":\"base\",\"alert_on\":\"risk_increase OR honeypot\"}"
 }

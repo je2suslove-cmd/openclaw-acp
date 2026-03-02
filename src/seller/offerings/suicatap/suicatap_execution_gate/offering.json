@@ -1,27 +1,54 @@
 {
   "name": "suicatap_execution_gate",
   "price": 0.2,
-  "priceV2": { "type": "fixed", "value": 0.2 },
-  "description": "SuicaTap Execution Gate — risk-check + executor handoff in one call. Returns PASS/CAUTION/BLOCK verdict with structured SafetyReceipt v2. If PASS, includes execution_handoff payload for Ethy/MIGI/SafeBase. Trading agents: call this BEFORE every swap.",
+  "priceV2": {
+    "type": "fixed",
+    "value": 0.2
+  },
+  "description": "SuicaTap Execution Gate \u2014 risk-check + executor handoff in one call. Returns PASS/CAUTION/BLOCK verdict with structured SafetyReceipt v2. If PASS, includes execution_handoff payload for Ethy/MIGI/SafeBase. Trading agents: call this BEFORE every swap.",
   "slaMinutes": 10,
   "requirement": {
     "type": "object",
     "required": ["tokenAddress"],
     "properties": {
-      "tokenAddress": { "type": "string", "description": "Token contract address (0x...)" },
-      "chain": { "type": "string", "enum": ["base", "ethereum", "eth", "bsc"], "default": "base" },
-      "amount": { "type": "number", "description": "Amount to swap (optional, for handoff)" },
-      "fromToken": { "type": "string", "description": "Token to sell (optional)" }
+      "tokenAddress": {
+        "type": "string",
+        "description": "Token contract address (0x...)"
+      },
+      "chain": {
+        "type": "string",
+        "enum": ["base", "ethereum", "eth", "bsc"],
+        "default": "base"
+      },
+      "amount": {
+        "type": "number",
+        "description": "Amount to swap (optional, for handoff)"
+      },
+      "fromToken": {
+        "type": "string",
+        "description": "Token to sell (optional)"
+      }
     }
   },
   "deliverable": {
     "type": "object",
     "required": ["decision", "score", "receipt"],
     "properties": {
-      "decision": { "type": "string", "enum": ["PASS", "CAUTION", "BLOCK"] },
-      "score": { "type": "number" },
-      "receipt": { "type": "object" },
-      "execution_handoff": { "type": "object" }
+      "decision": {
+        "type": "string",
+        "enum": ["PASS", "CAUTION", "BLOCK"]
+      },
+      "score": {
+        "type": "number"
+      },
+      "receipt": {
+        "type": "object"
+      },
+      "execution_handoff": {
+        "type": "object"
+      }
     }
-  }
+  },
+  "jobInput": "Risk check + get executor handoff for 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 on Base",
+  "jobOutput": "{\"decision\":\"PASS\",\"score\":99,\"receipt\":{\"version\":\"suicatap_v2\",\"decision\":\"PASS\"},\"execution_handoff\":{\"recommended_executor\":\"ethy_ai\",\"job_name\":\"swap\",\"reason\":\"SuicaTap score=99 \u2014 safe to execute\"}}"
 }

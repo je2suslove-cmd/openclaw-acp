@@ -5,5 +5,11 @@
   "jobFeeType": "fixed",
   "slaMinutes": 5,
   "requiredFunds": false,
-  "requirement": { "type": "object", "properties": {}, "required": [] }
+  "requirement": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "jobInput": "Ping SuicaTap to check if it's online",
+  "jobOutput": "OK \u2014 SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.20) for safe swap routing."
 }

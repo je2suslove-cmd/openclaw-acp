@@ -19,5 +19,7 @@
       }
     }
   },
-  "hide": true
+  "hide": true,
+  "jobInput": "Batch risk scan: check 3 tokens on Base at once",
+  "jobOutput": "{\"results\":[{\"address\":\"0x833589...\",\"decision\":\"PASS\",\"score\":99},{\"address\":\"0x4200...\",\"decision\":\"PASS\",\"score\":98}],\"summary\":\"2/2 PASS\"}"
 }

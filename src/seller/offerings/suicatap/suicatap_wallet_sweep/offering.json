@@ -29,5 +29,7 @@
       }
     }
   },
-  "hide": true
+  "hide": true,
+  "jobInput": "Sweep wallet 0x1234... and check all token holdings for risk on Base",
+  "jobOutput": "{\"wallet\":\"0x1234...\",\"tokens_found\":5,\"risky\":1,\"safe\":4,\"summary\":\"1 BLOCK token found \u2014 action required\"}"
 }

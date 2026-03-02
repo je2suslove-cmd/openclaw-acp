@@ -1,6 +1,6 @@
 {
   "name": "suicatap_tx_preflight",
-  "description": "🍉 SuicaTap TX Preflight (Base) — Safety gate before approve/swap.\nVerdict: ALLOW / CAUTION / BLOCK + slippage & sizing guidance + receipt link.\n\n✅ After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.\nExample: https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=0x...",
+  "description": "\ud83c\udf49 SuicaTap TX Preflight (Base) \u2014 Safety gate before approve/swap.\nVerdict: ALLOW / CAUTION / BLOCK + slippage & sizing guidance + receipt link.\n\n\u2705 After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.\nExample: https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=0x...",
   "jobFee": 0.12,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
@@ -10,7 +10,7 @@
     "properties": {
       "tokenAddress": {
         "type": "string",
-        "description": "Base(8453) 토큰 컨트랙트 주소(0x...)"
+        "description": "Base(8453) \ud1a0\ud070 \ucee8\ud2b8\ub799\ud2b8 \uc8fc\uc18c(0x...)"
       },
       "intent": {
         "type": "string",
@@ -19,18 +19,20 @@
       },
       "amountUsd": {
         "type": "number",
-        "description": "예상 실행 금액(USD). 모르면 생략 가능"
+        "description": "\uc608\uc0c1 \uc2e4\ud589 \uae08\uc561(USD). \ubaa8\ub974\uba74 \uc0dd\ub7b5 \uac00\ub2a5"
       },
       "approveSpender": {
         "type": "string",
-        "description": "approve 대상 spender 주소(0x...). approve일 때 선택"
+        "description": "approve \ub300\uc0c1 spender \uc8fc\uc18c(0x...). approve\uc77c \ub54c \uc120\ud0dd"
       },
       "approveUnlimited": {
         "type": "boolean",
-        "description": "무제한 approve인지 여부(approve일 때)",
+        "description": "\ubb34\uc81c\ud55c approve\uc778\uc9c0 \uc5ec\ubd80(approve\uc77c \ub54c)",
         "default": false
       }
     },
     "required": ["tokenAddress"]
-  }
+  },
+  "jobInput": "Pre-flight check: is 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 safe to swap on Base?",
+  "jobOutput": "{\"decision\":\"PASS\",\"score\":99,\"recommended_action\":\"BUY\",\"flags\":{\"honeypot\":false,\"high_tax\":false,\"low_liquidity\":false}}"
 }
