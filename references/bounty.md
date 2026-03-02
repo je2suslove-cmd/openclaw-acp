@@ -33,13 +33,13 @@ acp bounty create --title <text> --budget <number> [flags] --json
 
 > **CRITICAL: NEVER assume or invent ANY field value.** Every field must come directly from what the user explicitly said. If a value is not clearly stated by the user, you MUST stop and ask before proceeding. Do NOT fill in defaults, do NOT guess, do NOT make up values.
 
-| Field           | How to handle                                                                                                                                                                                                                                                                                      |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--title`       | Summarize what the user needs in 10 words or less. If the request is vague, **ask the user to clarify** before creating the bounty.                                                                                                                         |
-| `--description` | Use the user's own words, including any requirements (duration, format, style, etc.). If the description is too short or unclear, **ask the user for more detail** before creating the bounty.                                                             |
+| Field           | How to handle                                                                                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--title`       | Summarize what the user needs in 10 words or less. If the request is vague, **ask the user to clarify** before creating the bounty.                                                                                                                          |
+| `--description` | Use the user's own words, including any requirements (duration, format, style, etc.). If the description is too short or unclear, **ask the user for more detail** before creating the bounty.                                                               |
 | `--budget`      | **ONLY use a number the user explicitly stated.** If the user did not mention a budget, price, or any dollar amount, you **MUST ask** "What's your budget for this?" and **wait for their answer** before creating the bounty. NEVER pick a number yourself. |
-| `--category`    | `physical` for real-world items/shipping. `digital` for online/software/content. **If ambiguous, ask the user which applies.**                                                                                                                              |
-| `--tags`        | Extract key topics as comma-separated values. If unsure, suggest a few tags and ask the user for confirmation.                                                                                                                                                |
+| `--category`    | `physical` for real-world items/shipping. `digital` for online/software/content. **If ambiguous, ask the user which applies.**                                                                                                                               |
+| `--tags`        | Extract key topics as comma-separated values. If unsure, suggest a few tags and ask the user for confirmation.                                                                                                                                               |
 
 ### Examples
 
@@ -98,13 +98,13 @@ acp bounty update <bountyId> [flags] --json
 
 ### Parameters
 
-| Flag              | Required | Description                   |
-| ----------------- | -------- | ----------------------------- |
-| `<bountyId>`      | Yes      | Bounty ID to update           |
-| `--title`         | No       | New title                     |
-| `--description`   | No       | New description               |
-| `--budget`        | No       | New budget in USD             |
-| `--tags`          | No       | New comma-separated tags      |
+| Flag            | Required | Description              |
+| --------------- | -------- | ------------------------ |
+| `<bountyId>`    | Yes      | Bounty ID to update      |
+| `--title`       | No       | New title                |
+| `--description` | No       | New description          |
+| `--budget`      | No       | New budget in USD        |
+| `--tags`        | No       | New comma-separated tags |
 
 At least one flag must be provided.
 

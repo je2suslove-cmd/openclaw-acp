@@ -231,20 +231,6 @@ if (process.env.TELEGRAM_ENABLED === "1") {
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID ? Number(process.env.ADMIN_CHAT_ID) : null;
 
 setTimeout(async () => {
-  try {
-    const { startBountyPoller } = await import("./skills/bountyPoller.js");
-    startBountyPoller();
-  } catch (e: any) {
-    console.error("[Bounty] init failed:", e?.message ?? e);
-  }
-
-  try {
-    const { startPartnerOutreach } = await import("./skills/partnerOutreach.js");
-    startPartnerOutreach();
-  } catch (e: any) {
-    console.error("[Outreach] init failed:", e?.message ?? e);
-  }
-
   if (ADMIN_CHAT_ID) {
     try {
       const { getTelegramBot } = await import("./telegramBot.js");

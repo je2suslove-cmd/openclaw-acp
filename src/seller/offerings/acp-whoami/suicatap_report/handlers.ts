@@ -95,12 +95,14 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
   const tokenAddress = request.tokenAddress.trim();
   const ts = new Date().toISOString();
 
+  // DexScreener: 시장 데이터 (priceUsd, pair 정보)
   const dexUrl = `https://api.dexscreener.com/token-pairs/v1/base/${tokenAddress}`;
-  const honeyUrl = `https://api.honeypot.is/v2/IsHoneypot?address=${tokenAddress}&chainID=${BASE_CHAIN_ID}`;
+  // Resource API: 리스크 데이터 (honeypot.is 직접 호출 대신)
+  const riskUrl = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}`;
 
   const errors: string[] = [];
   let bestPair: any | null = null;
-  let honey: any | null = null;
+  let riskRaw: any | null = null;
 
   try {
     bestPair = pickBestPair(await fetchJson(dexUrl));
@@ -108,30 +110,29 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
     errors.push(`DexScreener: ${String(e?.message ?? e)}`);
   }
   try {
-    honey = await fetchJson(honeyUrl);
+    riskRaw = await fetchJson(riskUrl);
   } catch (e: any) {
-    errors.push(`Honeypot: ${String(e?.message ?? e)}`);
+    errors.push(`ResourceAPI: ${String(e?.message ?? e)}`);
   }
 
-  const symbol = honey?.token?.symbol ?? bestPair?.baseToken?.symbol ?? "UNKNOWN";
+  const risk = riskRaw?.risk ?? {};
+  const symbol = riskRaw?.token?.symbol ?? bestPair?.baseToken?.symbol ?? "UNKNOWN";
 
   const priceUsd = bestPair?.priceUsd ?? null;
-  const liqUsd = Number(bestPair?.liquidity?.usd ?? 0);
-  const vol24 = Number(bestPair?.volume?.h24 ?? 0);
+  const liqUsd = Number(bestPair?.liquidity?.usd ?? risk.liqUsd ?? 0);
+  const vol24 = Number(bestPair?.volume?.h24 ?? risk.vol24 ?? 0);
   const dexId = bestPair?.dexId ?? null;
   const pairAddress = bestPair?.pairAddress ?? null;
   const pairUrl = bestPair?.url ?? null;
   const pairCreatedAt = bestPair?.pairCreatedAt ?? null;
   const ageDays = daysSince(typeof pairCreatedAt === "number" ? pairCreatedAt : null);
 
-  const isHoneypot = Boolean(honey?.honeypotResult?.isHoneypot ?? false);
-  const riskLevel = Number(honey?.summary?.riskLevel ?? 99);
-  const riskText = honey?.summary?.risk ?? "unknown";
-  const buyTax = Number(honey?.simulationResult?.buyTax ?? 0);
-  const sellTax = Number(honey?.simulationResult?.sellTax ?? 0);
-  const openSource = Boolean(honey?.contractCode?.openSource ?? false);
-  const isProxy = Boolean(honey?.contractCode?.isProxy ?? false);
-  const flags = Array.isArray(honey?.flags) ? honey.flags : [];
+  const isHoneypot = Boolean(risk.isHoneypot ?? false);
+  const riskLevel = Number(risk.riskLevel ?? 99);
+  const buyTax = Number(risk.buyTax ?? 0);
+  const sellTax = Number(risk.sellTax ?? 0);
+
+  if (Array.isArray(riskRaw?.errors)) errors.push(...riskRaw.errors);
 
   const { beep, decision, reasons } = verdictFromSignals({
     isHoneypot,
@@ -144,12 +145,7 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
 
   const checklist = [
     { label: "Honeypot", ok: !isHoneypot, warn: false, detail: String(isHoneypot) },
-    {
-      label: "RiskLevel",
-      ok: riskLevel <= 1,
-      warn: riskLevel === 2,
-      detail: `level=${riskLevel} (${riskText})`,
-    },
+    { label: "RiskLevel", ok: riskLevel <= 1, warn: riskLevel === 2, detail: `level=${riskLevel}` },
     {
       label: "Tax",
       ok: buyTax <= 2 && sellTax <= 2,
@@ -162,8 +158,6 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
       warn: liqUsd >= 50_000,
       detail: `~$${liqUsd.toFixed(0)}`,
     },
-    { label: "Proxy", ok: !isProxy, warn: false, detail: String(isProxy) },
-    { label: "OpenSource", ok: openSource, warn: !openSource, detail: String(openSource) },
     {
       label: "Pair age",
       ok: (ageDays ?? 0) >= 7,
@@ -209,7 +203,7 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
       pairCreatedAt,
       ageDays,
     },
-    contract: { riskText, riskLevel, isHoneypot, buyTax, sellTax, openSource, isProxy, flags },
+    contract: { riskLevel, isHoneypot, buyTax, sellTax },
     checklist,
     recommendations: { slippage: slip, action },
     proofUrl,
@@ -230,7 +224,6 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
 
   out.push("## Red flags (Top)");
   reasons.forEach((r) => out.push(`- ${r}`));
-  if (flags.length) out.push(`- Flags: ${flags.map((x: any) => String(x)).join(", ")}`);
   out.push("");
 
   out.push("## Checklist (✅/⚠️/❌)");

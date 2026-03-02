@@ -1,3 +1,5 @@
+const RESOURCE_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
+
 type RiskSummary = {
   token?: { name?: string; symbol?: string; address?: string };
   chain?: { id?: string; name?: string; shortName?: string };
@@ -8,54 +10,44 @@ type RiskSummary = {
   raw?: any;
 };
 
-function pick(obj: any, path: string, fallback?: any) {
-  return (
-    path.split(".").reduce((a, k) => (a && a[k] !== undefined ? a[k] : undefined), obj) ?? fallback
-  );
-}
-
-export async function checkHoneypot(address: string, chainId?: string): Promise<RiskSummary> {
-  const addr = address.trim();
-  const u = new URL("https://api.honeypot.is/v2/IsHoneypot");
-  u.searchParams.set("address", addr);
-  if (chainId) u.searchParams.set("chainID", String(chainId).trim());
-
-  const res = await fetch(u.toString(), { method: "GET" });
+export async function checkHoneypot(address: string, _chainId?: string): Promise<RiskSummary> {
+  const url = `${RESOURCE_BASE}?tokenAddress=${address.trim()}`;
+  const res = await fetch(url, { method: "GET" });
   const json: any = await res.json();
   if (!res.ok) {
-    const msg = json?.error || `Honeypot API HTTP ${res.status}`;
+    const msg = json?.error || `Resource API HTTP ${res.status}`;
     throw new Error(msg);
   }
 
+  const risk = json?.risk ?? {};
+  const token = json?.token ?? {};
+  const lvl: number = risk.riskLevel ?? 99;
+
   return {
     token: {
-      name: pick(json, "token.name"),
-      symbol: pick(json, "token.symbol"),
-      address: pick(json, "token.address"),
+      name: token.symbol,
+      symbol: token.symbol,
+      address: token.address ?? address,
     },
-    chain: {
-      id: pick(json, "chain.id"),
-      name: pick(json, "chain.name"),
-      shortName: pick(json, "chain.shortName"),
-    },
+    chain: { id: "8453", name: "base", shortName: "base" },
     summary: {
-      risk: pick(json, "summary.risk"),
-      riskLevel: pick(json, "summary.riskLevel"),
-      flags: pick(json, "summary.flags", pick(json, "flags", [])),
+      risk: lvl >= 4 ? "CRITICAL" : lvl >= 2 ? "MEDIUM" : "LOW",
+      riskLevel: lvl,
+      flags: Array.isArray(risk.reasons) ? risk.reasons : [],
     },
     honeypot: {
-      isHoneypot: pick(json, "honeypotResult.isHoneypot"),
-      honeypotReason: pick(json, "honeypotResult.honeypotReason"),
+      isHoneypot: risk.isHoneypot ?? false,
+      honeypotReason: risk.isHoneypot ? "Honeypot detected via Resource API" : undefined,
     },
     taxes: {
-      buyTax: pick(json, "simulationResult.buyTax"),
-      sellTax: pick(json, "simulationResult.sellTax"),
-      transferTax: pick(json, "simulationResult.transferTax"),
+      buyTax: risk.buyTax ?? 0,
+      sellTax: risk.sellTax ?? 0,
+      transferTax: 0,
     },
     contract: {
-      openSource: pick(json, "contractCode.openSource"),
-      isProxy: pick(json, "contractCode.isProxy"),
-      hasProxyCalls: pick(json, "contractCode.hasProxyCalls"),
+      openSource: false,
+      isProxy: false,
+      hasProxyCalls: false,
     },
     raw: json,
   };
@@ -69,15 +61,13 @@ export function formatRisk(r: RiskSummary): string {
   const hp = r.honeypot?.isHoneypot;
   const flags = (r.summary?.flags ?? []).slice(0, 8);
 
-  const tax = `tax(buy/sell/xfer)=${r.taxes?.buyTax ?? "?"}/${r.taxes?.sellTax ?? "?"}/${r.taxes?.transferTax ?? "?"}`;
-  const code = `openSource=${r.contract?.openSource ?? "?"}, proxy=${r.contract?.isProxy ?? "?"}`;
+  const tax = `tax(buy/sell)=${r.taxes?.buyTax ?? "?"}/${r.taxes?.sellTax ?? "?"}`;
 
   return [
     `🧪 /risk 결과: ${sym} on ${chain}`,
     `• risk=${risk} (level=${lvl})`,
     `• honeypot=${hp ?? "unknown"}${r.honeypot?.honeypotReason ? ` (${r.honeypot.honeypotReason})` : ""}`,
     `• ${tax}`,
-    `• ${code}`,
     flags.length ? `• flags: ${flags.join(", ")}` : `• flags: (none)`,
     ``,
     `💡 업셀: token_risk_quick / suicatap_report / suicatap_tx_preflight`,

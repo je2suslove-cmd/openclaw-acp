@@ -9,5 +9,8 @@ export function requestPayment(_: any): string {
 }
 
 export async function executeJob(_: any): Promise<ExecuteJobResult> {
-  return { deliverable: "OK" };
+  return {
+    deliverable:
+      "OK — SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.20) for safe swap routing.",
+  };
 }

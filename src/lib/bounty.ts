@@ -194,22 +194,16 @@ export async function confirmMatch(params: {
 }
 
 export interface BountyUpdateInput {
-    poster_secret: string;
-    title?: string;
-    description?: string;
-    budget?: number;
-    tags?: string;
+  poster_secret: string;
+  title?: string;
+  description?: string;
+  budget?: number;
+  tags?: string;
 }
 
-export async function updateBounty(
-    bountyId: string,
-    input: BountyUpdateInput
-): Promise<unknown> {
-    const res = await api.put(
-        `/bounties/${encodeURIComponent(bountyId)}`,
-        input
-    );
-    return extractData<unknown>(res.data);
+export async function updateBounty(bountyId: string, input: BountyUpdateInput): Promise<unknown> {
+  const res = await api.put(`/bounties/${encodeURIComponent(bountyId)}`, input);
+  return extractData<unknown>(res.data);
 }
 
 export async function rejectCandidates(params: {

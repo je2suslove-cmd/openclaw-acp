@@ -28,20 +28,7 @@ async function fetchJson(url: string, timeoutMs = 12_000): Promise<any> {
   }
 }
 
-function pickBestPair(pairs: any[]): any | null {
-  if (!Array.isArray(pairs) || pairs.length === 0) return null;
-  return (
-    pairs
-      .map((p) => {
-        const liqUsd = Number(p?.liquidity?.usd ?? 0);
-        const vol24 = Number(p?.volume?.h24 ?? 0);
-        return { p, score: liqUsd * 10 + vol24 };
-      })
-      .sort((a, b) => b.score - a.score)[0]?.p ?? null
-  );
-}
-
-function classify(beep: "🟢" | "🟡" | "🔴") {
+function classify(beep: string) {
   if (beep === "🔴") return "BLOCK";
   if (beep === "🟡") return "CAUTION";
   return "ALLOW";
@@ -87,49 +74,33 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
   const approveSpender = request.approveSpender?.trim() ?? null;
 
   const ts = new Date().toISOString();
-
-  const dexUrl = `https://api.dexscreener.com/token-pairs/v1/base/${tokenAddress}`;
-  const honeyUrl = `https://api.honeypot.is/v2/IsHoneypot?address=${tokenAddress}&chainID=${BASE_CHAIN_ID}`;
+  const receiptUrl = `${RESOURCE_URL}?tokenAddress=${tokenAddress}`;
 
   const errors: string[] = [];
-  let bestPair: any | null = null;
-  let honey: any | null = null;
+  let riskRaw: any = null;
 
   try {
-    const dex = await fetchJson(dexUrl);
-    bestPair = pickBestPair(Array.isArray(dex) ? dex : []);
+    riskRaw = await fetchJson(receiptUrl);
   } catch (e: any) {
-    errors.push(`DexScreener: ${String(e?.message ?? e)}`);
+    errors.push(`ResourceAPI: ${String(e?.message ?? e)}`);
   }
 
-  try {
-    honey = await fetchJson(honeyUrl);
-  } catch (e: any) {
-    errors.push(`Honeypot: ${String(e?.message ?? e)}`);
-  }
+  const risk = riskRaw?.risk ?? {};
+  const symbol: string = riskRaw?.token?.symbol ?? "UNKNOWN";
+  const liqUsd = Number(risk.liqUsd ?? 0);
+  const vol24 = Number(risk.vol24 ?? 0);
+  const isHoneypot = Boolean(risk.isHoneypot ?? false);
+  const riskLevel = Number(risk.riskLevel ?? 99);
+  const buyTax = Number(risk.buyTax ?? 0);
+  const sellTax = Number(risk.sellTax ?? 0);
+  const beep: string =
+    risk.beep ?? (isHoneypot || riskLevel >= 4 ? "🔴" : riskLevel >= 2 ? "🟡" : "🟢");
 
-  const symbol = honey?.token?.symbol ?? bestPair?.baseToken?.symbol ?? "UNKNOWN";
-  const liqUsd = Number(bestPair?.liquidity?.usd ?? 0);
-  const vol24 = Number(bestPair?.volume?.h24 ?? 0);
+  if (Array.isArray(riskRaw?.errors)) errors.push(...riskRaw.errors);
 
-  const isHoneypot = Boolean(honey?.honeypotResult?.isHoneypot ?? false);
-  const riskLevel = Number(honey?.summary?.riskLevel ?? 99);
-  const buyTax = Number(honey?.simulationResult?.buyTax ?? 0);
-  const sellTax = Number(honey?.simulationResult?.sellTax ?? 0);
-
-  const reasons: string[] = [];
-  if (isHoneypot) reasons.push("Honeypot suspected (isHoneypot=true)");
-  if (riskLevel >= 3) reasons.push(`High riskLevel=${riskLevel}`);
-  if (buyTax >= 10 || sellTax >= 10) reasons.push(`High tax buy/sell=${buyTax}%/${sellTax}%`);
-  if (liqUsd < 10_000) reasons.push(`Low liquidity ~ $${liqUsd.toFixed(0)}`);
-
-  const beep: "🟢" | "🟡" | "🔴" =
-    isHoneypot || riskLevel >= 4
-      ? "🔴"
-      : riskLevel >= 2 || buyTax >= 5 || sellTax >= 5 || liqUsd < 50_000
-        ? "🟡"
-        : "🟢";
-
+  const reasons: string[] = Array.isArray(risk.reasons) ? risk.reasons : [];
+  if (isHoneypot && !reasons.some((r) => r.includes("Honeypot")))
+    reasons.push("Honeypot suspected (isHoneypot=true)");
   if (reasons.length === 0) reasons.push("No critical flags detected (not a guarantee of safety).");
 
   let decision = classify(beep);
@@ -147,7 +118,6 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
   if (size.tier === "LARGE" && beep === "🟡") decision = "BLOCK";
 
   const slip = recommendSlippage(intent, liqUsd);
-  const receiptUrl = `${RESOURCE_URL}?tokenAddress=${tokenAddress}`;
 
   const preflight = {
     version: "suicatap_preflight_v2",

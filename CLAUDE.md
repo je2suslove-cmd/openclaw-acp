@@ -19,17 +19,17 @@ This file provides AI assistants with a complete orientation to the `openclaw-ac
 
 ## Tech Stack
 
-| Technology | Purpose |
-|---|---|
-| TypeScript (strict, ES2022, Node16 modules) | Primary language |
-| `tsx` | Direct TypeScript execution (no build step needed) |
-| `axios` | HTTP client for all REST API calls |
-| `socket.io-client` | WebSocket connection for seller runtime |
-| `telegraf` | Telegram bot integration |
-| `node-cron` | Cron scheduling for automation skills |
-| `p-queue` | Promise queue / rate limiting |
-| `dotenv` | Environment variable loading |
-| Prettier + Husky | Code formatting enforced via pre-commit hooks |
+| Technology                                  | Purpose                                            |
+| ------------------------------------------- | -------------------------------------------------- |
+| TypeScript (strict, ES2022, Node16 modules) | Primary language                                   |
+| `tsx`                                       | Direct TypeScript execution (no build step needed) |
+| `axios`                                     | HTTP client for all REST API calls                 |
+| `socket.io-client`                          | WebSocket connection for seller runtime            |
+| `telegraf`                                  | Telegram bot integration                           |
+| `node-cron`                                 | Cron scheduling for automation skills              |
+| `p-queue`                                   | Promise queue / rate limiting                      |
+| `dotenv`                                    | Environment variable loading                       |
+| Prettier + Husky                            | Code formatting enforced via pre-commit hooks      |
 
 ---
 
@@ -151,6 +151,7 @@ npm start     # Starts HTTP server (src/entry.ts) on PORT (default 8080)
 ```
 
 HTTP routes:
+
 - `GET /health` — health check, returns `{ok: true}`
 - `GET /r/risk?tokenAddress=0x...` — token risk analysis (via Resource API)
 - `POST /telegram-webhook` — Telegram bot webhook (requires `TELEGRAM_ENABLED=1`)
@@ -161,25 +162,25 @@ HTTP routes:
 
 Defined in `.env.example` and loaded via `dotenv`:
 
-| Variable | Default | Description |
-|---|---|---|
-| `ACP_API_URL` | `https://claw-api.virtuals.io` | Main ACP REST API |
-| `ACP_AUTH_URL` | `https://acpx.virtuals.io` | Auth and agent management |
-| `ACP_BOUNTY_API_URL` | `https://bounty.virtuals.io` | Bounty system |
-| `ACP_SOCKET_URL` | `https://acpx.virtuals.io` | Seller WebSocket |
-| `PORT` | `8080` | HTTP server port |
-| `TELEGRAM_ENABLED` | — | Set to `1` to enable Telegram webhook |
-| `TELEGRAM_BOT_TOKEN` | — | Telegram bot token |
+| Variable             | Default                        | Description                           |
+| -------------------- | ------------------------------ | ------------------------------------- |
+| `ACP_API_URL`        | `https://claw-api.virtuals.io` | Main ACP REST API                     |
+| `ACP_AUTH_URL`       | `https://acpx.virtuals.io`     | Auth and agent management             |
+| `ACP_BOUNTY_API_URL` | `https://bounty.virtuals.io`   | Bounty system                         |
+| `ACP_SOCKET_URL`     | `https://acpx.virtuals.io`     | Seller WebSocket                      |
+| `PORT`               | `8080`                         | HTTP server port                      |
+| `TELEGRAM_ENABLED`   | —                              | Set to `1` to enable Telegram webhook |
+| `TELEGRAM_BOT_TOKEN` | —                              | Telegram bot token                    |
 
 **Runtime config** is stored in `config.json` (git-ignored):
 
 ```typescript
 interface ConfigJson {
-  SESSION_TOKEN?: { token: string };   // 30-min expiry auth token
-  LITE_AGENT_API_KEY?: string;         // Active agent API key
-  SELLER_PID?: number;                 // PID of running seller process
+  SESSION_TOKEN?: { token: string }; // 30-min expiry auth token
+  LITE_AGENT_API_KEY?: string; // Active agent API key
+  SELLER_PID?: number; // PID of running seller process
   OPENCLAW_BOUNTY_CRON_JOB_ID?: string;
-  agents?: AgentEntry[];               // All known agents
+  agents?: AgentEntry[]; // All known agents
   DEPLOYS?: Record<string, DeployInfo>;
 }
 ```
@@ -217,15 +218,15 @@ error("Failed to connect to ACP");
 ```typescript
 import { readConfig, getActiveAgent, activateAgent } from "../lib/config.js";
 
-const config = readConfig();           // Read config.json
-const agent = getActiveAgent(config);  // Get the currently active agent
-activateAgent(agentId, config);        // Switch active agent
+const config = readConfig(); // Read config.json
+const agent = getActiveAgent(config); // Get the currently active agent
+activateAgent(agentId, config); // Switch active agent
 ```
 
 ### HTTP Client
 
 ```typescript
-import client from "../lib/client.js";  // Pre-configured axios instance
+import client from "../lib/client.js"; // Pre-configured axios instance
 // Automatically sets Authorization header with active agent API key
 const res = await client.get("/acp/jobs/active");
 ```
@@ -234,8 +235,8 @@ const res = await client.get("/acp/jobs/active");
 
 - All imports must use `.js` extension (even for `.ts` source files) — required by Node16 ESM:
   ```typescript
-  import { readConfig } from "../lib/config.js";   // correct
-  import { readConfig } from "../lib/config";       // wrong — will fail at runtime
+  import { readConfig } from "../lib/config.js"; // correct
+  import { readConfig } from "../lib/config"; // wrong — will fail at runtime
   ```
 - Module type is `"module"` in `package.json` (ESM throughout)
 - `strict` mode is enabled in `tsconfig.json` — no implicit `any`
@@ -257,7 +258,7 @@ try {
   return res.data;
 } catch (err: any) {
   const msg = err.response?.data?.message ?? err.message ?? String(err);
-  error(`Failed to create job: ${msg}`);  // exits with code 1
+  error(`Failed to create job: ${msg}`); // exits with code 1
 }
 ```
 
@@ -364,6 +365,7 @@ npm run format:check    # Check formatting without writing
 ```
 
 Prettier config (`.prettierrc`):
+
 - Double quotes
 - Semicolons on
 - 2-space indent
@@ -384,6 +386,7 @@ There is no unit test framework. Tests are integration-level bash scripts:
 ```
 
 When making changes:
+
 - Test manually with relevant `acp` commands
 - Use `--json` flag to validate machine-readable output
 - Check seller runtime logs: `acp serve logs [--offering <name>] [--job <id>]`
@@ -392,16 +395,16 @@ When making changes:
 
 ## External APIs
 
-| API | Base URL | Purpose |
-|---|---|---|
-| ACP REST API | `https://claw-api.virtuals.io` | Job offerings, marketplace, wallet |
-| ACP Auth API | `https://acpx.virtuals.io` | Agent management, session tokens |
-| ACP Bounty API | `https://bounty.virtuals.io` | Bounty creation and polling |
-| ACP Socket | `https://acpx.virtuals.io` | Seller WebSocket (Socket.IO) |
-| DexScreener | Public | DEX pair data for token analysis |
-| Honeypot.is | Public | Honeypot detection |
-| GoPlus | Public | Token security verification |
-| Rugcheck | Public | Rugpull detection |
+| API            | Base URL                       | Purpose                            |
+| -------------- | ------------------------------ | ---------------------------------- |
+| ACP REST API   | `https://claw-api.virtuals.io` | Job offerings, marketplace, wallet |
+| ACP Auth API   | `https://acpx.virtuals.io`     | Agent management, session tokens   |
+| ACP Bounty API | `https://bounty.virtuals.io`   | Bounty creation and polling        |
+| ACP Socket     | `https://acpx.virtuals.io`     | Seller WebSocket (Socket.IO)       |
+| DexScreener    | Public                         | DEX pair data for token analysis   |
+| Honeypot.is    | Public                         | Honeypot detection                 |
+| GoPlus         | Public                         | Token security verification        |
+| Rugcheck       | Public                         | Rugpull detection                  |
 
 ---
 
@@ -477,6 +480,7 @@ interface ActiveBounty {
 ## Common Tasks for AI Assistants
 
 ### "Add a new token analysis offering"
+
 1. Read `src/seller/offerings/suicatap/suicatap_beep/` as a reference
 2. Create new directory under `src/seller/offerings/<agent-name>/<offering-name>/`
 3. Write `offering.json` with appropriate schema and fee
@@ -484,17 +488,20 @@ interface ActiveBounty {
 5. Register: `acp sell create`
 
 ### "Add a new CLI subcommand"
+
 1. Read `bin/acp.ts` to understand routing and help text conventions
 2. Read `src/commands/search.ts` or `src/commands/job.ts` as style references
 3. Add the handler function, add routing in `bin/acp.ts`, add help text
 4. Use `output()` for all output, never `console.log` directly
 
 ### "Fix a seller runtime issue"
+
 1. Read `src/seller/runtime/seller.ts` to understand job event handling
 2. Read `src/seller/runtime/sellerApi.ts` for API call details
 3. Check seller logs: `acp serve logs`
 
 ### "Add a new automation skill"
+
 1. Read `src/skills/bountyPoller.ts` as a reference pattern
 2. Create `src/skills/<skill-name>.ts`
 3. Export a function that can be called on a schedule or event
@@ -514,14 +521,14 @@ interface ActiveBounty {
 
 ## Important Files to Know
 
-| File | Why It Matters |
-|---|---|
-| `bin/acp.ts` | All CLI routing lives here; touch this when adding/changing commands |
-| `src/lib/output.ts` | Dual-mode output — use this for all user-facing messages |
-| `src/lib/client.ts` | Pre-configured HTTP client — always use this for ACP API calls |
-| `src/lib/config.ts` | Config read/write — use this to access agent credentials |
-| `src/seller/runtime/offeringTypes.ts` | Handler interface — check this when writing offering handlers |
-| `src/seller/runtime/types.ts` | `AcpJobPhase` enum — reference this for job lifecycle logic |
-| `.env.example` | Canonical list of all environment variables |
-| `SKILL.md` | Detailed AI agent usage guide for the ACP skill |
-| `references/seller.md` | Step-by-step guide for creating and registering offerings |
+| File                                  | Why It Matters                                                       |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| `bin/acp.ts`                          | All CLI routing lives here; touch this when adding/changing commands |
+| `src/lib/output.ts`                   | Dual-mode output — use this for all user-facing messages             |
+| `src/lib/client.ts`                   | Pre-configured HTTP client — always use this for ACP API calls       |
+| `src/lib/config.ts`                   | Config read/write — use this to access agent credentials             |
+| `src/seller/runtime/offeringTypes.ts` | Handler interface — check this when writing offering handlers        |
+| `src/seller/runtime/types.ts`         | `AcpJobPhase` enum — reference this for job lifecycle logic          |
+| `.env.example`                        | Canonical list of all environment variables                          |
+| `SKILL.md`                            | Detailed AI agent usage guide for the ACP skill                      |
+| `references/seller.md`                | Step-by-step guide for creating and registering offerings            |
