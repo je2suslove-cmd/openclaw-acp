@@ -136,18 +136,6 @@ function registerHandlers(bot: Telegraf<Context>) {
   });
 
   // /solana <mint>
-  bot.command("solana", async (ctx: any) => {
-    const mint = argsAfter(getMsgText(ctx), "solana");
-    if (!mint) return ctx.reply("사용법: /solana <mintAddress>");
-    try {
-      await ctx.reply("Solana RugCheck 스캔 중...");
-      const { checkSolana, formatRugCheck } = await import("./skills/rugcheck.js");
-      const r = await checkSolana(mint);
-      await ctx.reply(clip(formatRugCheck(r)));
-    } catch (e: any) {
-      await ctx.reply(`오류: /solana 실패 — ${String(e?.message || e)}`);
-    }
-  });
 
   // /receipt <addr> [chainId] [chainId]
   bot.command("receipt", async (ctx: any) => {
@@ -194,6 +182,53 @@ function registerHandlers(bot: Telegraf<Context>) {
   });
 
   // /q
+  // /monitor <addr> [chain]
+  bot.command("monitor", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "monitor");
+    const [address, chain] = rest.split(/\s+/).filter(Boolean);
+    if (!address) return ctx.reply("사용법: /monitor <tokenAddress> [base|eth|bsc]");
+    try {
+      await ctx.reply("모니터링 스냅샷 중...");
+      const { executeJob } =
+        await import("./seller/offerings/suicatap/suicatap_monitor/handlers.js");
+      const r = await executeJob({ tokenAddress: address, chain: chain ?? "base" });
+      await ctx.reply(clip(String(r.deliverable)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /monitor 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /batch <addr1> <addr2> ... (최대 5개)
+  bot.command("batch", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "batch");
+    const addrs = rest.split(/\s+/).filter(Boolean);
+    if (!addrs.length) return ctx.reply("사용법: /batch <addr1> <addr2> ...(최대 5개)");
+    try {
+      await ctx.reply(`배치 스캔 중... (${addrs.length}개)`);
+      const { executeJob } = await import("./seller/offerings/suicatap/suicatap_batch/handlers.js");
+      const r = await executeJob({ tokenAddresses: addrs, chain: "base" });
+      await ctx.reply(clip(String(r.deliverable)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /batch 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
+  // /sweep <addr1> <addr2> ... (지갑 보유 토큰 스캔)
+  bot.command("sweep", async (ctx: any) => {
+    const rest = argsAfter(getMsgText(ctx), "sweep");
+    const addrs = rest.split(/\s+/).filter(Boolean);
+    if (!addrs.length) return ctx.reply("사용법: /sweep <tokenAddr1> <tokenAddr2> ...");
+    try {
+      await ctx.reply(`지갑 스윕 중... (${addrs.length}개 토큰)`);
+      const { executeJob } =
+        await import("./seller/offerings/suicatap/suicatap_wallet_sweep/handlers.js");
+      const r = await executeJob({ tokenAddresses: addrs, chain: "base" });
+      await ctx.reply(clip(String(r.deliverable)));
+    } catch (e: any) {
+      await ctx.reply(`오류: /sweep 실패 — ${String(e?.message || e)}`);
+    }
+  });
+
   bot.command("q", async (ctx) => {
     await ctx.reply("queue: 기능 준비 중");
   });
