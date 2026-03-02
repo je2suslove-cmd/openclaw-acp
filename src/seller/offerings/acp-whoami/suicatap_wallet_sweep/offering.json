@@ -1,7 +1,7 @@
 {
   "name": "suicatap_wallet_sweep",
   "description": "SuicaTap Wallet Sweep \u2014 Scan all tokens in a wallet at once. Input: list of token addresses held by the wallet. Output: risk verdict for each token + overall portfolio risk summary. Supports Base, Ethereum, BSC. Cheaper than scanning one by one.",
-  "jobFee": 0.25,
+  "jobFee": 0.3,
   "jobFeeType": "fixed",
   "slaMinutes": 10,
   "requiredFunds": false,
@@ -30,5 +30,6 @@
     }
   },
   "jobInput": "Sweep wallet 0x1234... and check all token holdings for risk on Base",
-  "jobOutput": "{\"wallet\":\"0x1234...\",\"tokens_found\":5,\"risky\":1,\"safe\":4,\"summary\":\"1 BLOCK token found \u2014 action required\"}"
+  "jobOutput": "{\"wallet\":\"0x1234...\",\"tokens_found\":5,\"risky\":1,\"safe\":4,\"summary\":\"1 BLOCK token found \u2014 action required\"}",
+  "price": 0.3
 }

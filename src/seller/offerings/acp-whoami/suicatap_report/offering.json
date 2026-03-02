@@ -1,7 +1,7 @@
 {
   "name": "suicatap_report",
   "description": "\ud83c\udf49 SuicaTap Report (Base) \u2014 Decision report for execution.\n3-line verdict + red flags + checklist + action plan + receipt link.\n\n\u2705 After completion, automatically call the `suicatap_risk` resource with the SAME tokenAddress to fetch the JSON receipt.\nExample: https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=0x...",
-  "jobFee": 0.18,
+  "jobFee": 0.35,
   "jobFeeType": "fixed",
   "slaMinutes": 10,
   "requiredFunds": false,
@@ -16,5 +16,6 @@
     "required": ["tokenAddress"]
   },
   "jobInput": "Full security audit of 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 on Base",
-  "jobOutput": "{\"decision\":\"PASS\",\"score\":99,\"contract_analysis\":{\"open_source\":true,\"proxy\":false,\"mintable\":false},\"liquidity_analysis\":{\"liq_usd\":9800000,\"healthy\":true},\"recommendation\":\"SAFE TO TRADE\"}"
+  "jobOutput": "{\"decision\":\"PASS\",\"score\":99,\"contract_analysis\":{\"open_source\":true,\"proxy\":false,\"mintable\":false},\"liquidity_analysis\":{\"liq_usd\":9800000,\"healthy\":true},\"recommendation\":\"SAFE TO TRADE\"}",
+  "price": 0.35
 }
