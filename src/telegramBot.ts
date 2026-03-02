@@ -60,7 +60,9 @@ function registerHandlers(bot: Telegraf<Context>) {
 
   // /start
   bot.start((ctx) =>
-    ctx.reply("안녕하세요! SuicaTap 🍉\n/do /risk /receipt /watch /ctx /q /me 사용 가능")
+    ctx.reply(
+      "안녕하세요! SuicaTap 🍉\n/risk /goplus /solana /monitor /batch /sweep /receipt /watch /do /me 사용 가능"
+    )
   );
 
   // /me

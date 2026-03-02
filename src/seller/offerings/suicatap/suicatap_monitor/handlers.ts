@@ -19,7 +19,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
     const isHoneypot = raw.honeypot?.isHoneypot ?? false;
     const buyTax = raw.taxes?.buyTax ?? 0;
     const sellTax = raw.taxes?.sellTax ?? 0;
-    const liq = (raw as any)?.pair?.liquidity ?? (raw as any)?.liquidity ?? 0;
+    const liq = (raw as any)?.pairs?.[0]?.liquidity?.usd ?? (raw as any)?.pair?.liquidity?.usd ?? 0;
 
     const verdict = isHoneypot ? "🔴 BLOCK" : risk >= 60 ? "🟡 CAUTION" : "🟢 PASS";
     const alerts: string[] = [];
