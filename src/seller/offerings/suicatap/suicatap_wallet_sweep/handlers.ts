@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, reasonFromErrors } from "../lib/logger.js";
 
 const RISK_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 
@@ -43,6 +44,8 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
   const tokenAddresses: string[] = req.tokenAddresses;
   const chain: string = req.chain ?? "base";
   const walletLabel: string = req.walletLabel ?? "Unknown Wallet";
+  const t0 = Date.now();
+  logJobEvent({ phase: "start", offering: "suicatap_wallet_sweep", chain });
   const ts = new Date().toISOString();
 
   const results = await Promise.all(tokenAddresses.map((a) => scanOne(a, chain)));
@@ -96,6 +99,17 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
   }
 
   lines.push("> Note: Technical risk summary only. Not financial advice.");
+
+  const allErrors = results.flatMap((r) => r?.errors ?? []);
+  const outcome = redCount > 0 ? "BLOCK" : yellowCount > 0 ? "CAUTION" : "PASS";
+  logJobEvent({
+    phase: allErrors.length > 0 ? "fail" : "ok",
+    offering: "suicatap_wallet_sweep",
+    chain,
+    durationMs: Date.now() - t0,
+    outcome,
+    reasonCode: allErrors.length > 0 ? reasonFromErrors(allErrors) : undefined,
+  });
 
   return { deliverable: lines.join("\n") };
 }

@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, reasonFromErrors } from "../lib/logger.js";
 
 const BASE_CHAIN_ID = 8453;
 const RISK_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
@@ -42,6 +43,8 @@ async function scanOne(tokenAddress: string): Promise<any> {
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
   const tokenAddresses: string[] = req.tokenAddresses;
+  const t0 = Date.now();
+  logJobEvent({ phase: "start", offering: "suicatap_batch", chain: "base" });
   const ts = new Date().toISOString();
 
   const results = await Promise.all(tokenAddresses.map(scanOne));
@@ -70,6 +73,20 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
   });
 
   lines.push("> Note: Technical risk summary only. Not financial advice.");
+
+  const hasAnyError = results.some((r) => Array.isArray(r?.errors) && r.errors.length > 0);
+  const hasRed = results.some((r) => r?.risk?.beep === "🔴");
+  const hasYellow = results.some((r) => r?.risk?.beep === "🟡");
+  const outcome = hasRed ? "BLOCK" : hasYellow ? "CAUTION" : "PASS";
+  const allErrors = results.flatMap((r) => r?.errors ?? []);
+  logJobEvent({
+    phase: hasAnyError ? "fail" : "ok",
+    offering: "suicatap_batch",
+    chain: "base",
+    durationMs: Date.now() - t0,
+    outcome,
+    reasonCode: hasAnyError ? reasonFromErrors(allErrors) : undefined,
+  });
 
   return { deliverable: lines.join("\n") };
 }

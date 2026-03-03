@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, maskAddress, reasonFromErrors } from "../lib/logger.js";
 
 type Intent = "approve" | "buy" | "sell";
 type Req = {
@@ -68,6 +69,13 @@ export function requestPayment(_: any): string {
 
 export async function executeJob(request: Req): Promise<ExecuteJobResult> {
   const tokenAddress = request.tokenAddress.trim();
+  const t0 = Date.now();
+  logJobEvent({
+    phase: "start",
+    offering: "suicatap_tx_preflight",
+    chain: "base",
+    token: maskAddress(tokenAddress),
+  });
   const intent: Intent = (request.intent ?? "buy") as Intent;
   const amountUsd = request.amountUsd;
   const approveUnlimited = Boolean(request.approveUnlimited ?? false);
@@ -166,6 +174,16 @@ export async function executeJob(request: Req): Promise<ExecuteJobResult> {
   out.push(JSON.stringify(preflight, null, 2));
   out.push("```");
   out.push("> Note: This is a technical risk summary, not financial advice.");
+
+  logJobEvent({
+    phase: errors.length > 0 ? "fail" : "ok",
+    offering: "suicatap_tx_preflight",
+    chain: "base",
+    token: maskAddress(tokenAddress),
+    durationMs: Date.now() - t0,
+    outcome: decision,
+    reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
+  });
 
   return { deliverable: out.join("\n") };
 }

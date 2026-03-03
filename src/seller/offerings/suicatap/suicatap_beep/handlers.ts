@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, maskAddress, reasonFromErrors } from "../lib/logger.js";
 
 const RESOURCE_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 const UPSELL =
@@ -33,6 +34,14 @@ export function requestPayment(_: any): string {
 
 export async function executeJob(request: { tokenAddress: string }): Promise<ExecuteJobResult> {
   const tokenAddress = request.tokenAddress.trim();
+  const t0 = Date.now();
+  logJobEvent({
+    phase: "start",
+    offering: "suicatap_beep",
+    chain: "base",
+    token: maskAddress(tokenAddress),
+  });
+
   const ts = new Date().toISOString();
   const receiptUrl = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}`;
 
@@ -88,5 +97,15 @@ export async function executeJob(request: { tokenAddress: string }): Promise<Exe
   lines.push("```");
   lines.push("> Note: This is a technical risk summary, not financial advice.");
 
+  const outcome = beep === "🔴" ? "BLOCK" : beep === "🟡" ? "CAUTION" : "PASS";
+  logJobEvent({
+    phase: errors.length > 0 ? "fail" : "ok",
+    offering: "suicatap_beep",
+    chain: "base",
+    token: maskAddress(tokenAddress),
+    durationMs: Date.now() - t0,
+    outcome,
+    reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
+  });
   return { deliverable: lines.join("\n") + UPSELL };
 }

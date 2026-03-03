@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, maskAddress, reasonFromErrors } from "../lib/logger.js";
 
 const DEFAULT_RISK_URL = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 
@@ -46,6 +47,13 @@ async function fetchJson(url: string): Promise<any> {
 export async function executeJob(request: any): Promise<ExecuteJobResult> {
   const tokenAddress = String(request.tokenAddress).trim();
   const chain = String(request?.chain || "base").trim();
+  const t0 = Date.now();
+  logJobEvent({
+    phase: "start",
+    offering: "token_risk_quick",
+    chain,
+    token: maskAddress(tokenAddress),
+  });
 
   const receiptUrl = `${RISK_URL}?tokenAddress=${encodeURIComponent(tokenAddress)}`;
 
@@ -73,9 +81,26 @@ export async function executeJob(request: any): Promise<ExecuteJobResult> {
       },
     };
 
+    logJobEvent({
+      phase: "ok",
+      offering: "token_risk_quick",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      outcome: verdict,
+    });
     return { deliverable };
   } catch (err: any) {
     // 실패해도 "완료 deliverable"로 반환 → expired/rejected 누적을 줄임 (단, 메시지는 솔직하게)
+    logJobEvent({
+      phase: "fail",
+      offering: "token_risk_quick",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      outcome: "TEMP_UNAVAILABLE",
+      reasonCode: reasonFromErrors([String(err?.message || err)]),
+    });
     return {
       deliverable: {
         type: "suicatap_token_risk_quick_v1",

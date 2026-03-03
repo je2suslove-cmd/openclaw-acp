@@ -1,4 +1,5 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
+import { logJobEvent, maskAddress } from "../lib/logger.js";
 
 const RESOURCE_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 const UPSELL = `\n\n🍉 SuicaTap | execution_gate $0.30 | report $0.35`;
@@ -10,6 +11,13 @@ export function validateRequirements(req: any): ValidationResult {
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
   const { tokenAddress, chain = "base" } = req;
+  const t0 = Date.now();
+  logJobEvent({
+    phase: "start",
+    offering: "suicatap_monitor",
+    chain,
+    token: maskAddress(tokenAddress),
+  });
 
   try {
     const url = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}&chain=${chain}`;
@@ -48,15 +56,44 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
         : "✅ No alerts — token appears safe",
     };
 
+    const outcomeKey = verdict.includes("BLOCK")
+      ? "BLOCK"
+      : verdict.includes("CAUTION")
+        ? "CAUTION"
+        : "PASS";
+    logJobEvent({
+      phase: "ok",
+      offering: "suicatap_monitor",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      outcome: outcomeKey,
+    });
     return { deliverable: JSON.stringify(result, null, 2) + UPSELL };
   } catch (e: any) {
+    const errMsg = e?.message ?? String(e);
+    const rc =
+      errMsg.toLowerCase().includes("abort") || errMsg.toLowerCase().includes("timeout")
+        ? ("ERR_UPSTREAM_TIMEOUT" as const)
+        : errMsg.toLowerCase().includes("http")
+          ? ("ERR_UPSTREAM_HTTP" as const)
+          : ("ERR_UPSTREAM" as const);
+    logJobEvent({
+      phase: "fail",
+      offering: "suicatap_monitor",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      outcome: "UNKNOWN",
+      reasonCode: rc,
+    });
     return {
       deliverable: JSON.stringify(
         {
           verdict: "🟡 UNKNOWN",
           tokenAddress,
           chain,
-          error: e?.message ?? String(e),
+          error: errMsg,
           snapshot_at: new Date().toISOString(),
         },
         null,

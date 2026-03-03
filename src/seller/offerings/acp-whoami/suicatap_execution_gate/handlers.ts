@@ -1,6 +1,7 @@
 import type { ExecuteJobResult } from "../../../runtime/offeringTypes.js";
 import { checkHoneypot } from "../../../../skills/risk.js";
 import { buildReceipt } from "../../../../types/receipt.js";
+import { logJobEvent, maskAddress } from "../../suicatap/lib/logger.js";
 
 const CHAIN_MAP: Record<string, { name: string; chainId: number }> = {
   base: { name: "base", chainId: 8453 },
@@ -21,45 +22,82 @@ const EXECUTORS: Record<string, { name: string; wallet: string; job: string }> =
 
 export async function executeJob(requirements: any): Promise<ExecuteJobResult> {
   const { tokenAddress, chain = "base", amount, fromToken } = requirements;
-  const chainInfo = CHAIN_MAP[chain] ?? CHAIN_MAP.base;
+  const t0 = Date.now();
+  logJobEvent({
+    phase: "start",
+    offering: "suicatap_execution_gate",
+    chain,
+    token: maskAddress(tokenAddress),
+  });
 
-  const raw = await checkHoneypot(tokenAddress, String(chainInfo.chainId));
-  const risk = {
-    riskLevel: raw.summary?.riskLevel ?? 50,
-    isHoneypot: raw.honeypot?.isHoneypot ?? false,
-    buyTax: raw.taxes?.buyTax ?? 0,
-    sellTax: raw.taxes?.sellTax ?? 0,
-    liqUsd: 0,
-    vol24: 0,
-    isProxy: raw.contract?.isProxy ?? false,
-    openSource: raw.contract?.openSource ?? false,
-  };
+  try {
+    const chainInfo = CHAIN_MAP[chain] ?? CHAIN_MAP.base;
 
-  const receipt = buildReceipt(tokenAddress, chainInfo.name, chainInfo.chainId, risk);
+    const raw = await checkHoneypot(tokenAddress, String(chainInfo.chainId));
+    const risk = {
+      riskLevel: raw.summary?.riskLevel ?? 50,
+      isHoneypot: raw.honeypot?.isHoneypot ?? false,
+      buyTax: raw.taxes?.buyTax ?? 0,
+      sellTax: raw.taxes?.sellTax ?? 0,
+      liqUsd: 0,
+      vol24: 0,
+      isProxy: raw.contract?.isProxy ?? false,
+      openSource: raw.contract?.openSource ?? false,
+    };
 
-  const output: any = {
-    decision: receipt.decision,
-    score: receipt.score,
-    receipt,
-  };
+    const receipt = buildReceipt(tokenAddress, chainInfo.name, chainInfo.chainId, risk);
 
-  if (receipt.decision === "PASS") {
-    const executor = EXECUTORS[chain] ?? EXECUTORS.base;
-    output.execution_handoff = {
-      recommended_executor: executor.name,
-      executor_wallet: executor.wallet,
-      job_name: executor.job,
-      requirements: {
-        ...(fromToken ? { fromSymbol: fromToken } : {}),
-        toSymbol: tokenAddress,
-        ...(amount ? { amount } : {}),
-      },
-      estimated_cost_usdc: 0.5,
-      reason: `SuicaTap score=${receipt.score} — safe to execute`,
+    const output: any = {
+      decision: receipt.decision,
+      score: receipt.score,
+      receipt,
+    };
+
+    if (receipt.decision === "PASS") {
+      const executor = EXECUTORS[chain] ?? EXECUTORS.base;
+      output.execution_handoff = {
+        recommended_executor: executor.name,
+        executor_wallet: executor.wallet,
+        job_name: executor.job,
+        requirements: {
+          ...(fromToken ? { fromSymbol: fromToken } : {}),
+          toSymbol: tokenAddress,
+          ...(amount ? { amount } : {}),
+        },
+        estimated_cost_usdc: 0.5,
+        reason: `SuicaTap score=${receipt.score} — safe to execute`,
+      };
+    }
+
+    logJobEvent({
+      phase: "ok",
+      offering: "suicatap_execution_gate",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      outcome: receipt.decision,
+    });
+    return { deliverable: JSON.stringify(output, null, 2) };
+  } catch (e: any) {
+    const errMsg = String(e?.message ?? e);
+    const rc =
+      errMsg.toLowerCase().includes("abort") || errMsg.toLowerCase().includes("timeout")
+        ? ("ERR_UPSTREAM_TIMEOUT" as const)
+        : ("ERR_UPSTREAM" as const);
+    logJobEvent({
+      phase: "fail",
+      offering: "suicatap_execution_gate",
+      chain,
+      token: maskAddress(tokenAddress),
+      durationMs: Date.now() - t0,
+      reasonCode: rc,
+    });
+    return {
+      deliverable: JSON.stringify(
+        { decision: "BLOCK", score: 0, error: errMsg, snapshot_at: new Date().toISOString() },
+        null,
+        2
+      ),
     };
   }
-
-  return {
-    deliverable: JSON.stringify(output, null, 2),
-  };
 }
