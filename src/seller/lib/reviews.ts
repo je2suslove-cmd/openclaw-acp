@@ -33,16 +33,24 @@ function readStore(): ReviewStore {
 }
 
 function writeStore(store: ReviewStore): void {
-  fs.writeFileSync(REVIEWS_PATH, JSON.stringify(store, null, 2) + "\n");
+  try {
+    fs.writeFileSync(REVIEWS_PATH, JSON.stringify(store, null, 2) + "\n");
+  } catch (e: any) {
+    console.error("[reviews] writeStore failed (non-fatal):", e?.message ?? e);
+  }
 }
 
 /** Add a review and grant 1 loyalty credit to the reviewer. */
 export function addReview(review: Review): void {
-  const store = readStore();
-  store.reviews.push(review);
-  const addr = review.agentAddress.toLowerCase();
-  store.credits[addr] = (store.credits[addr] ?? 0) + 1;
-  writeStore(store);
+  try {
+    const store = readStore();
+    store.reviews.push(review);
+    const addr = review.agentAddress.toLowerCase();
+    store.credits[addr] = (store.credits[addr] ?? 0) + 1;
+    writeStore(store);
+  } catch (e: any) {
+    console.error("[reviews] addReview failed (non-fatal):", e?.message ?? e);
+  }
 }
 
 /** Returns true if the agent has at least 1 unused loyalty credit. */

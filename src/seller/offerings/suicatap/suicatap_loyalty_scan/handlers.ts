@@ -50,23 +50,24 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
     token: maskAddress(tokenAddress),
   });
 
-  // Consume the credit before running the scan
-  if (!consumeCredit(agentAddress)) {
-    return {
-      deliverable:
-        "❌ Credit already consumed or not found. Submit a new review via suicatap_review to earn another free scan.",
-    };
-  }
-
   const receiptUrl = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}`;
   const ts = new Date().toISOString();
   const errors: string[] = [];
   let raw: any = null;
 
+  // Run the scan FIRST, then consume credit only on success
   try {
     raw = await fetchJson(receiptUrl);
   } catch (e: any) {
     errors.push(`ResourceAPI: ${String(e?.message ?? e)}`);
+  }
+
+  // Consume credit after we have a result (even partial) — prevents silent credit loss
+  if (!consumeCredit(agentAddress)) {
+    return {
+      deliverable:
+        "❌ Credit already consumed or not found. Submit a new review via suicatap_review to earn another free scan.",
+    };
   }
 
   const risk = raw?.risk ?? {};
