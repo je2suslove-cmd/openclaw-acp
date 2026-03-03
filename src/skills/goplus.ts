@@ -75,6 +75,6 @@ export function formatGoPlus(r: GoPlusResult): string {
     `• flags: ${r.flags.length ? r.flags.join(", ") : "(none)"}`,
     `• riskLevel=${r.riskLevel}`,
     ``,
-    `🍉 SuicaTap | execution_gate $0.20 | report $0.25`,
+    `🍉 SuicaTap | execution_gate $0.30 | report $0.35`,
   ].join("\n");
 }

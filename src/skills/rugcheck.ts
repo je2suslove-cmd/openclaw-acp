@@ -30,6 +30,6 @@ export function formatRugCheck(r: RugCheckResult): string {
     `• risks: ${r.risks.length ? r.risks.join(", ") : "(none)"}`,
     `• verdict=${r.isGood ? "PASS" : "CAUTION/BLOCK"}`,
     ``,
-    `🍉 SuicaTap | execution_gate $0.20 | report $0.25`,
+    `🍉 SuicaTap | execution_gate $0.30 | report $0.35`,
   ].join("\n");
 }

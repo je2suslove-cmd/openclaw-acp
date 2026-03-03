@@ -1,6 +1,6 @@
 {
   "name": "suicatap_report",
-  "description": "Full security audit report for a token. Includes contract analysis, liquidity health, tax breakdown, and PASS/CAUTION/BLOCK recommendation.",
+  "description": "Full token security audit: honeypot, rug pull, contract risk, liquidity, and tax analysis on Base/ETH/BSC. Returns a detailed report with checklist, action plan, and PASS/CAUTION/BLOCK verdict. Best for thorough due diligence before a significant trade.",
   "jobFee": 0.35,
   "jobFeeType": "fixed",
   "slaMinutes": 10,

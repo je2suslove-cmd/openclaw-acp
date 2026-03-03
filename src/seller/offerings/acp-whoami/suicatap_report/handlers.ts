@@ -51,14 +51,15 @@ function verdictFromSignals(args: {
   const { isHoneypot, riskLevel, buyTax, sellTax, liqUsd } = args;
 
   if (isHoneypot) reasons.push("Honeypot suspected (isHoneypot=true)");
-  if (riskLevel >= 3) reasons.push(`High riskLevel=${riskLevel}`);
+  if (riskLevel >= 80) reasons.push(`High riskLevel=${riskLevel} (critical)`);
+  else if (riskLevel >= 40) reasons.push(`Elevated riskLevel=${riskLevel}`);
   if (buyTax >= 10 || sellTax >= 10) reasons.push(`High tax buy/sell=${buyTax}%/${sellTax}%`);
   if (liqUsd < 10_000) reasons.push(`Low liquidity ~ $${liqUsd.toFixed(0)}`);
 
   const beep: "🟢" | "🟡" | "🔴" =
-    isHoneypot || riskLevel >= 4
+    isHoneypot || riskLevel >= 80
       ? "🔴"
-      : riskLevel >= 2 || buyTax >= 5 || sellTax >= 5 || liqUsd < 50_000
+      : riskLevel >= 40 || buyTax >= 5 || sellTax >= 5 || liqUsd < 50_000
         ? "🟡"
         : "🟢";
 

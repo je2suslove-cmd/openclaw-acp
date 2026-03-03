@@ -1,6 +1,6 @@
 {
   "name": "suicatap_beep",
-  "description": "Fast honeypot + tax + liquidity scan for any token on Base/ETH/BSC. Returns PASS/CAUTION/BLOCK verdict with JSON receipt. Call BEFORE every swap.",
+  "description": "Token safety check: is this token safe to buy? Detects honeypots, rug pulls, and high tax on Base/ETH/BSC. Returns instant PASS/CAUTION/BLOCK verdict with JSON proof. Call this before buying, swapping, or approving any token.",
   "jobFee": 0.05,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
@@ -15,7 +15,7 @@
     },
     "required": ["tokenAddress"]
   },
+  "price": 0.05,
   "jobInput": "Check if 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 is safe to trade on Base",
-  "jobOutput": "{\"decision\":\"PASS\",\"verdict\":\"🟢\",\"score\":99,\"reasons\":[\"no critical flags\"],\"liquidity_usd\":9800000,\"volume_24h\":33000000,\"honeypot\":false,\"buy_tax\":0,\"sell_tax\":0}",
-  "price": 0.05
+  "jobOutput": "{\"decision\":\"PASS\",\"verdict\":\"🟢\",\"score\":99,\"reasons\":[\"no critical flags\"],\"liquidity_usd\":9800000,\"volume_24h\":33000000,\"honeypot\":false,\"buy_tax\":0,\"sell_tax\":0}"
 }

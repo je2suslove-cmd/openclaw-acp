@@ -1,6 +1,6 @@
 {
   "name": "suicatap_monitor",
-  "description": "Token risk snapshot with change detection. Monitors a token for risk increases, honeypot activation, or liquidity changes.",
+  "description": "Token risk snapshot with alert detection. Checks current honeypot status, sell tax, and liquidity for a token you already hold. Returns alerts if risk has increased since last check. Use to monitor portfolio positions.",
   "jobFee": 0.1,
   "jobFeeType": "fixed",
   "slaMinutes": 5,

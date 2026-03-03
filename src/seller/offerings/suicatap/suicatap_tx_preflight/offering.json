@@ -1,6 +1,6 @@
 {
   "name": "suicatap_tx_preflight",
-  "description": "Pre-flight safety gate before swap execution. Checks honeypot, tax, liquidity, contract risk. Returns ALLOW/CAUTION/BLOCK with SafetyReceipt v2.",
+  "description": "Safety check before approve, buy, or sell on Base. Detects honeypots, high tax, and low liquidity. Returns ALLOW/CAUTION/BLOCK with slippage and position sizing recommendations. Supports approve intent to flag unlimited approve risk.",
   "jobFee": 0.15,
   "jobFeeType": "fixed",
   "slaMinutes": 5,

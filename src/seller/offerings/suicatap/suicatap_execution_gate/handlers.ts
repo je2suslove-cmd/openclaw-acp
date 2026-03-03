@@ -1,7 +1,20 @@
-import type { ExecuteJobResult } from "../../../runtime/offeringTypes.js";
+import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { checkHoneypot } from "../../../../skills/risk.js";
 import { buildReceipt } from "../../../../types/receipt.js";
 import { logJobEvent, maskAddress } from "../lib/logger.js";
+
+function isHexAddress(s: unknown): s is string {
+  return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
+}
+
+export function validateRequirements(req: any): ValidationResult {
+  if (!isHexAddress(req?.tokenAddress))
+    return { valid: false, reason: "tokenAddress must be a 0x… 40-byte address" };
+  const chain = req?.chain;
+  if (chain && !["base", "ethereum", "eth", "bsc"].includes(chain))
+    return { valid: false, reason: "chain must be base|ethereum|eth|bsc" };
+  return { valid: true };
+}
 
 const CHAIN_MAP: Record<string, { name: string; chainId: number }> = {
   base: { name: "base", chainId: 8453 },

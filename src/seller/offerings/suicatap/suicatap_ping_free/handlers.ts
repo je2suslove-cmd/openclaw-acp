@@ -13,7 +13,7 @@ export async function executeJob(_: any): Promise<ExecuteJobResult> {
   const t0 = Date.now();
   logJobEvent({ phase: "start", offering: "suicatap_ping_free" });
   const deliverable =
-    "OK — SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.20) for safe swap routing.";
+    "OK — SuicaTap is live. Use suicatap_beep ($0.05) for honeypot check, execution_gate ($0.30) for safe swap routing.";
   logJobEvent({
     phase: "ok",
     offering: "suicatap_ping_free",
