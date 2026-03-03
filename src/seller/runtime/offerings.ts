@@ -71,5 +71,6 @@ export function listOfferings(agentDirName: string): string[] {
   return fs
     .readdirSync(offeringsRoot, { withFileTypes: true })
     .filter((d) => d.isDirectory())
+    .filter((d) => fs.existsSync(path.join(offeringsRoot, d.name, "offering.json")))
     .map((d) => d.name);
 }
