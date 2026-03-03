@@ -443,7 +443,9 @@ export async function updateAll(): Promise<void> {
 
   const dirs = fs
     .readdirSync(offeringsRoot, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter(
+      (d) => d.isDirectory() && fs.existsSync(path.join(offeringsRoot, d.name, "offering.json"))
+    )
     .map((d) => d.name);
 
   if (dirs.length === 0) {
@@ -453,16 +455,31 @@ export async function updateAll(): Promise<void> {
 
   output.log(`\n  Updating ${dirs.length} offering(s)...\n`);
   let ok = 0;
-  let fail = 0;
+  const failed: string[] = [];
+
   for (const dir of dirs) {
+    const jsonPath = path.join(offeringsRoot, dir, "offering.json");
     try {
-      await create(dir);
-      ok++;
-    } catch {
-      fail++;
+      const json: OfferingJson = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+      const payload = buildAcpPayload(json);
+      const result = await createJobOffering(payload);
+      if (result.success) {
+        output.log(`  ✓ ${json.name}`);
+        ok++;
+      } else {
+        output.log(`  ✗ ${json.name} — API returned failure`);
+        failed.push(json.name);
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      output.log(`  ✗ ${dir} — ${msg}`);
+      failed.push(dir);
     }
   }
-  output.log(`\n  Done — ${ok} updated, ${fail} failed.\n`);
+
+  output.log(`\n  Done — ${ok} updated, ${failed.length} failed.`);
+  if (failed.length > 0) output.log(`  Failed: ${failed.join(", ")}\n`);
+  else output.log("");
 }
 
 // -- Delete: delist offering --
