@@ -19,7 +19,7 @@ export function validateRequirements(req: any): ValidationResult {
 }
 
 export function requestPayment(_: any): string {
-  return "SuicaTap Review — free submission. You'll receive 1 loyalty scan credit.";
+  return "SuicaTap Review — free submission. Thank you for your feedback!";
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
@@ -52,9 +52,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
       type: "suicatap_review_v1",
       value: {
         success: true,
-        message: `Thank you for your ${stars} review! 1 free loyalty scan credit has been granted to ${agentAddress.slice(0, 10)}…`,
-        credit_granted: 1,
-        redeem_via: "suicatap_loyalty_scan",
+        message: `Thank you for your ${stars} review! Your feedback helps improve SuicaTap for all agents.`,
         total_reviews: totalReviews,
         review: { agentAddress, rating, comment: comment.slice(0, 200) },
       },
