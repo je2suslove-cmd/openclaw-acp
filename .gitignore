@@ -44,6 +44,7 @@ Dockerfile
 
 local/
 active-bounties.json
+reviews.json
 
 test-dev.md
 
