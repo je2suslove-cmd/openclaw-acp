@@ -271,3 +271,27 @@ setTimeout(async () => {
     console.log("[Scanner] ADMIN_CHAT_ID not set; 새 토큰 알림 비활성");
   }
 }, 30000); // 30초 후 시작
+
+// ── 마케팅 아웃리치 스킬 ──
+setTimeout(async () => {
+  try {
+    const { startMarketingOutreach } = await import("./skills/marketingOutreach.js");
+
+    let sendMessage: ((chatId: number | string, text: string) => Promise<any>) | undefined;
+    if (ADMIN_CHAT_ID) {
+      try {
+        const { getTelegramBot } = await import("./telegramBot.js");
+        const bot = getTelegramBot();
+        if (bot) {
+          sendMessage = (chatId, text) => bot.telegram.sendMessage(chatId, text);
+        }
+      } catch {
+        // Telegram 비활성 시 콘솔 로그만
+      }
+    }
+
+    startMarketingOutreach(sendMessage, ADMIN_CHAT_ID ?? undefined);
+  } catch (e: any) {
+    console.error("[Outreach] init 실패:", e?.message ?? e);
+  }
+}, 60_000); // 60초 후 시작

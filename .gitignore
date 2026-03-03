@@ -54,3 +54,4 @@ test-dev.md
 config.json
 config.json.backup*
 *.backup*
+.marketing-contacts.json
