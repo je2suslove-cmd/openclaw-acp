@@ -534,3 +534,5 @@ interface ActiveBounty {
 | `references/seller.md`                | Step-by-step guide for creating and registering offerings            |
 
 # Last updated: 2026-03-03
+
+## Setup: complete
