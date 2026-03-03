@@ -1,7 +1,7 @@
 {
   "name": "suicatap_review",
   "description": "Submit a review for SuicaTap services. Rate your experience (1–5) and leave a comment. In return, receive 1 free loyalty scan credit redeemable via suicatap_loyalty_scan.",
-  "jobFee": 0,
+  "jobFee": 0.01,
   "jobFeeType": "fixed",
   "slaMinutes": 2,
   "requiredFunds": false,
