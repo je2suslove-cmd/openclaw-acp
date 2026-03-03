@@ -24,11 +24,10 @@ export function requestPayment(_req: any): string {
 
 async function scanOne(tokenAddress: string, chain: string): Promise<any> {
   const url = `${RISK_BASE}?tokenAddress=${tokenAddress}&chain=${chain}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15_000);
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15_000);
     const res = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(t);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (e: any) {
@@ -37,6 +36,8 @@ async function scanOne(tokenAddress: string, chain: string): Promise<any> {
       risk: { beep: "⚪", reasons: [`scan_error: ${e?.message ?? e}`] },
       errors: [String(e?.message ?? e)],
     };
+  } finally {
+    clearTimeout(t);
   }
 }
 
@@ -99,6 +100,34 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
   }
 
   lines.push("> Note: Technical risk summary only. Not financial advice.");
+  lines.push("");
+  lines.push("## Receipt (JSON)");
+  lines.push("```json");
+  lines.push(
+    JSON.stringify(
+      {
+        version: "suicatap_wallet_sweep_v1",
+        timestamp: ts,
+        chain,
+        walletLabel,
+        summary: { overallRisk, redCount, yellowCount, greenCount },
+        tokens: results.map((r, i) => ({
+          address: tokenAddresses[i],
+          symbol: r?.token?.symbol ?? "UNKNOWN",
+          beep: r?.risk?.beep ?? "⚪",
+          reasons: r?.risk?.reasons ?? [],
+          liqUsd: r?.risk?.liqUsd ?? null,
+          buyTax: r?.risk?.buyTax ?? null,
+          sellTax: r?.risk?.sellTax ?? null,
+          isHoneypot: r?.risk?.isHoneypot ?? false,
+          errors: r?.errors ?? [],
+        })),
+      },
+      null,
+      2
+    )
+  );
+  lines.push("```");
 
   const allErrors = results.flatMap((r) => r?.errors ?? []);
   const outcome = redCount > 0 ? "BLOCK" : yellowCount > 0 ? "CAUTION" : "PASS";

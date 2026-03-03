@@ -74,6 +74,32 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
   });
 
   lines.push("> Note: Technical risk summary only. Not financial advice.");
+  lines.push("");
+  lines.push("## Receipt (JSON)");
+  lines.push("```json");
+  lines.push(
+    JSON.stringify(
+      {
+        version: "suicatap_batch_v1",
+        timestamp: ts,
+        chainID: BASE_CHAIN_ID,
+        tokens: results.map((r, i) => ({
+          address: tokenAddresses[i],
+          symbol: r?.token?.symbol ?? "UNKNOWN",
+          beep: r?.risk?.beep ?? "⚪",
+          reasons: r?.risk?.reasons ?? [],
+          liqUsd: r?.risk?.liqUsd ?? null,
+          buyTax: r?.risk?.buyTax ?? null,
+          sellTax: r?.risk?.sellTax ?? null,
+          isHoneypot: r?.risk?.isHoneypot ?? false,
+          errors: r?.errors ?? [],
+        })),
+      },
+      null,
+      2
+    )
+  );
+  lines.push("```");
 
   const hasAnyError = results.some((r) => Array.isArray(r?.errors) && r.errors.length > 0);
   const hasRed = results.some((r) => r?.risk?.beep === "🔴");
