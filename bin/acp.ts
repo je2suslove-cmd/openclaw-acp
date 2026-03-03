@@ -133,6 +133,8 @@ function buildHelp(): string {
     section("Selling Services"),
     cmd("sell init <offering-name>", "Scaffold a new offering"),
     cmd("sell create <offering-name>", "Register offering on ACP"),
+    cmd("sell update <offering-name>", "Re-register (update) an offering on ACP"),
+    cmd("sell update-all", "Re-register all local offerings on ACP"),
     cmd("sell delete <offering-name>", "Delist offering from ACP"),
     cmd("sell list", "Show all offerings with status"),
     cmd("sell inspect <offering-name>", "Detailed view of an offering"),
@@ -684,6 +686,9 @@ async function main(): Promise<void> {
       }
       if (subcommand === "init") return sell.init(rest[0]);
       if (subcommand === "create") return sell.create(rest[0]);
+      if (subcommand === "update" && rest[0] === "all") return sell.updateAll();
+      if (subcommand === "update-all") return sell.updateAll();
+      if (subcommand === "update") return sell.update(rest[0]);
       if (subcommand === "delete") return sell.del(rest[0]);
       if (subcommand === "list") return sell.list();
       if (subcommand === "inspect") return sell.inspect(rest[0]);

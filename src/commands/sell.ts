@@ -427,6 +427,61 @@ export async function create(offeringName: string): Promise<void> {
   output.log("  Tip: Run `acp serve start` to begin accepting jobs.\n");
 }
 
+// -- Update: re-register offering (upsert) --
+
+export async function update(offeringName: string): Promise<void> {
+  return create(offeringName);
+}
+
+// -- Update-all: re-register every local offering --
+
+export async function updateAll(): Promise<void> {
+  const offeringsRoot = getOfferingsRoot();
+  if (!fs.existsSync(offeringsRoot)) {
+    output.fatal("No offerings directory found.");
+  }
+
+  const dirs = fs
+    .readdirSync(offeringsRoot, { withFileTypes: true })
+    .filter(
+      (d) => d.isDirectory() && fs.existsSync(path.join(offeringsRoot, d.name, "offering.json"))
+    )
+    .map((d) => d.name);
+
+  if (dirs.length === 0) {
+    output.log("  No offerings found.\n");
+    return;
+  }
+
+  output.log(`\n  Updating ${dirs.length} offering(s)...\n`);
+  let ok = 0;
+  const failed: string[] = [];
+
+  for (const dir of dirs) {
+    const jsonPath = path.join(offeringsRoot, dir, "offering.json");
+    try {
+      const json: OfferingJson = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+      const payload = buildAcpPayload(json);
+      const result = await createJobOffering(payload);
+      if (result.success) {
+        output.log(`  ✓ ${json.name}`);
+        ok++;
+      } else {
+        output.log(`  ✗ ${json.name} — API returned failure`);
+        failed.push(json.name);
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      output.log(`  ✗ ${dir} — ${msg}`);
+      failed.push(dir);
+    }
+  }
+
+  output.log(`\n  Done — ${ok} updated, ${failed.length} failed.`);
+  if (failed.length > 0) output.log(`  Failed: ${failed.join(", ")}\n`);
+  else output.log("");
+}
+
 // -- Delete: delist offering --
 
 export async function del(offeringName: string): Promise<void> {

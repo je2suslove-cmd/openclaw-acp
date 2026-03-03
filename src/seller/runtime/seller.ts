@@ -165,6 +165,16 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
       });
     } catch (err) {
       console.error(`[seller] Error processing job ${jobId}:`, err);
+      // REQUEST 페이즈에서 오류 발생 시 잡을 reject하여 바이어가 영구 대기하는 것을 방지
+      try {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await acceptOrRejectJob(jobId, {
+          accept: false,
+          reason: `Internal error: ${errMsg.slice(0, 100)}`,
+        });
+      } catch (rejectErr) {
+        console.error(`[seller] Failed to reject job ${jobId} after error:`, rejectErr);
+      }
     }
   }
 
@@ -190,6 +200,15 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
       } catch (err) {
         console.error(`[seller] Error delivering job ${jobId}:`, err);
         recordJobResult(false);
+        // Deliver an error result so the buyer gets a response instead of a hanging job
+        try {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          await deliverJob(jobId, {
+            deliverable: `❌ Job execution failed: ${errMsg.slice(0, 200)}`,
+          });
+        } catch (deliverErr) {
+          console.error(`[seller] Failed to deliver error result for job ${jobId}:`, deliverErr);
+        }
       }
     } else {
       console.log(`[seller] Job ${jobId} in TRANSACTION but no offering resolved — skipping`);

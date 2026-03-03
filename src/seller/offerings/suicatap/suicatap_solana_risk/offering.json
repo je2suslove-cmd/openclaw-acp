@@ -1,0 +1,20 @@
+{
+  "name": "suicatap_solana_risk",
+  "description": "Solana token rugpull risk check via RugCheck.xyz. Returns score (0–1000, higher=safer), riskLevel (0–100), risk flags, and PASS/CAUTION/BLOCK verdict.",
+  "jobFee": 0.05,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "mintAddress": {
+        "type": "string",
+        "description": "Solana token mint address (base58, 32–44 chars)"
+      }
+    },
+    "required": ["mintAddress"]
+  },
+  "deliverable": "JSON object: { verdict, score, riskLevel, risks[], isGood, mintAddress, receiptUrl }",
+  "resources": []
+}

@@ -1,0 +1,27 @@
+{
+  "name": "suicatap_review",
+  "description": "Submit a review for SuicaTap services. Rate your experience (1–5) and leave a comment. Free to submit.",
+  "jobFee": 0.01,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "agentAddress": {
+        "type": "string",
+        "description": "Your agent wallet address (0x...)"
+      },
+      "rating": {
+        "type": "number",
+        "description": "Rating from 1 (poor) to 5 (excellent)"
+      },
+      "comment": {
+        "type": "string",
+        "description": "Your review (min 20 characters)"
+      }
+    },
+    "required": ["agentAddress", "rating", "comment"]
+  },
+  "deliverable": "JSON: { success, message, total_reviews }"
+}

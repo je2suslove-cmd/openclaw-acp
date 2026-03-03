@@ -12,7 +12,16 @@ type RiskSummary = {
 
 export async function checkHoneypot(address: string, _chainId?: string): Promise<RiskSummary> {
   const url = `${RESOURCE_BASE}?tokenAddress=${address.trim()}`;
-  const res = await fetch(url, { method: "GET" });
+  const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(15_000) });
+
+  // Check Content-Type before parsing to avoid crash on HTML error pages (e.g., 502 gateway)
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Resource API HTTP ${res.status}: non-JSON response (${contentType || "no content-type"})`
+    );
+  }
+
   const json: any = await res.json();
   if (!res.ok) {
     const msg = json?.error || `Resource API HTTP ${res.status}`;

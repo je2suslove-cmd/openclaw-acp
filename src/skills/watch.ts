@@ -76,7 +76,9 @@ export function startWatchLoop(
             ].join("\n")
           );
         }
-      } catch {}
+      } catch (e: any) {
+        console.error(`[Watch] checkHoneypot failed for ${k}:`, e?.message ?? e);
+      }
     }
   }, intervalMs);
 }

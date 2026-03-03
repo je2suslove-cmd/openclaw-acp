@@ -6,6 +6,7 @@
     "value": 0.3
   },
   "description": "All-in-one pre-trade safety gate for trading agents. Checks honeypot, rug pull, and tax risk, then provides executor handoff to Ethy/SafeBase if safe. Use this when you want to buy or swap a token and need both a safety verdict and a swap route in one call.",
+  "requiredFunds": false,
   "slaMinutes": 10,
   "requirement": {
     "type": "object",
