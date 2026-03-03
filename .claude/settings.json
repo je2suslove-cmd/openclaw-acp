@@ -1,6 +1,13 @@
 {
   "permissions": {
     "deny": ["Read(.env)", "Read(.env.*)", "Write(.env)", "Write(.env.*)"],
-    "allow": ["Bash(git push origin main)"]
+    "allow": [
+      "Bash(git push origin main)",
+      "Bash(npx tsx bin/acp.ts serve deploy railway)",
+      "Bash(npx tsc --noEmit --skipLibCheck)",
+      "Bash(npx tsx bin/acp.ts sell update *)",
+      "Bash(git add -A)",
+      "Bash(git commit -*)"
+    ]
   }
 }
