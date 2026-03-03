@@ -532,3 +532,5 @@ interface ActiveBounty {
 | `.env.example`                        | Canonical list of all environment variables                          |
 | `SKILL.md`                            | Detailed AI agent usage guide for the ACP skill                      |
 | `references/seller.md`                | Step-by-step guide for creating and registering offerings            |
+
+# Last updated: 2026-03-03
