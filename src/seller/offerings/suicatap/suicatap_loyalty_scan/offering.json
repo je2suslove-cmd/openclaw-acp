@@ -1,0 +1,23 @@
+{
+  "name": "suicatap_loyalty_scan",
+  "description": "Free token risk scan (same as suicatap_beep) redeemable with 1 loyalty credit earned by submitting a review via suicatap_review. Validates agentAddress has an unused credit before executing.",
+  "jobFee": 0,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "agentAddress": {
+        "type": "string",
+        "description": "Your agent wallet address (0x...) — must have a loyalty credit from suicatap_review"
+      },
+      "tokenAddress": {
+        "type": "string",
+        "description": "Token contract address to scan (0x...)"
+      }
+    },
+    "required": ["agentAddress", "tokenAddress"]
+  },
+  "deliverable": "Markdown: full beep scan result (same as suicatap_beep) + credit-redeemed confirmation"
+}
