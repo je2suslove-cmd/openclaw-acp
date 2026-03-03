@@ -190,6 +190,15 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
       } catch (err) {
         console.error(`[seller] Error delivering job ${jobId}:`, err);
         recordJobResult(false);
+        // Deliver an error result so the buyer gets a response instead of a hanging job
+        try {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          await deliverJob(jobId, {
+            deliverable: `❌ Job execution failed: ${errMsg.slice(0, 200)}`,
+          });
+        } catch (deliverErr) {
+          console.error(`[seller] Failed to deliver error result for job ${jobId}:`, deliverErr);
+        }
       }
     } else {
       console.log(`[seller] Job ${jobId} in TRANSACTION but no offering resolved — skipping`);
