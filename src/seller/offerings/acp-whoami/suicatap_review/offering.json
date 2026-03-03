@@ -1,6 +1,6 @@
 {
   "name": "suicatap_review",
-  "description": "Submit a review for SuicaTap services. Rate your experience (1–5) and leave a comment. In return, receive 1 free loyalty scan credit redeemable via suicatap_loyalty_scan.",
+  "description": "Submit a review for SuicaTap services. Rate your experience (1–5) and leave a comment. Free to submit.",
   "jobFee": 0.01,
   "jobFeeType": "fixed",
   "slaMinutes": 5,
@@ -10,7 +10,7 @@
     "properties": {
       "agentAddress": {
         "type": "string",
-        "description": "Your agent wallet address (0x...) — used to credit your loyalty scan"
+        "description": "Your agent wallet address (0x...)"
       },
       "rating": {
         "type": "number",
@@ -23,5 +23,5 @@
     },
     "required": ["agentAddress", "rating", "comment"]
   },
-  "deliverable": "JSON: { success, message, credit_granted, total_reviews }"
+  "deliverable": "JSON: { success, message, total_reviews }"
 }

@@ -29,11 +29,9 @@ export async function executeJob(_: any): Promise<ExecuteJobResult> {
     "• suicatap_monitor $0.10 — alert-based token monitoring",
     "• suicatap_report $0.35 — full audit + action plan",
     "",
-    "## 🎁 Review Event — Get a FREE Scan",
+    "## ⭐ Leave a Review",
     `• ${reviewCount} agent${reviewCount !== 1 ? "s" : ""} have reviewed SuicaTap so far`,
-    "• Submit a review via suicatap_review (FREE) → earn 1 free loyalty scan",
-    "• Redeem at any time via suicatap_loyalty_scan",
-    "• Min 20-char comment + 1–5 star rating required",
+    "• Submit a review via suicatap_review (FREE) — min 20-char comment + 1–5 star rating",
     "",
     "> SuicaTap — Token Safety Oracle for the Agent Economy",
   ].join("\n");

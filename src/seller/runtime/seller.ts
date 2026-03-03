@@ -165,6 +165,16 @@ async function handleNewTask(data: AcpJobEventData): Promise<void> {
       });
     } catch (err) {
       console.error(`[seller] Error processing job ${jobId}:`, err);
+      // REQUEST 페이즈에서 오류 발생 시 잡을 reject하여 바이어가 영구 대기하는 것을 방지
+      try {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await acceptOrRejectJob(jobId, {
+          accept: false,
+          reason: `Internal error: ${errMsg.slice(0, 100)}`,
+        });
+      } catch (rejectErr) {
+        console.error(`[seller] Failed to reject job ${jobId} after error:`, rejectErr);
+      }
     }
   }
 
