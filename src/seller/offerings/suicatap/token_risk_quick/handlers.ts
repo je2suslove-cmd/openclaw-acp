@@ -60,13 +60,13 @@ export async function executeJob(request: any): Promise<ExecuteJobResult> {
   try {
     const data = await fetchJson(receiptUrl);
 
-    const verdict = String(
-      pick(data?.verdict, data?.result, data?.summary?.verdict, data?.risk?.verdict, "UNKNOWN")
-    );
+    const beep: string = data?.risk?.beep ?? "🟡";
+    const verdict = beep === "🔴" ? "BLOCK" : beep === "🟢" ? "PASS" : "CAUTION";
+    const riskLevel = Number(data?.risk?.riskLevel ?? 50);
 
-    const flags = pick<any[]>(data?.flags, data?.riskFlags, data?.summary?.flags, []) as any[];
-
-    const topFlags = Array.isArray(flags) ? flags.slice(0, 5) : [];
+    const topFlags: string[] = Array.isArray(data?.risk?.reasons)
+      ? data.risk.reasons.slice(0, 5)
+      : [];
 
     const deliverable = {
       type: "suicatap_token_risk_quick_v1",
@@ -74,7 +74,8 @@ export async function executeJob(request: any): Promise<ExecuteJobResult> {
         tokenAddress,
         chain,
         verdict,
-        emoji: emojiFromVerdict(verdict),
+        emoji: beep,
+        riskLevel,
         topFlags,
         receiptUrl,
         raw: data,

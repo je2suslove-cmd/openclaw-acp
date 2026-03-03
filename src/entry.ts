@@ -88,14 +88,14 @@ function beepFromSignals(args: {
   const liqUsd = args.liqUsd ?? 0;
 
   if (honeypot) reasons.push("isHoneypot=true");
-  if (riskLevel >= 3) reasons.push(`riskLevel=${riskLevel}`);
+  if (riskLevel >= 40) reasons.push(`riskLevel=${riskLevel}`);
   if (buyTax >= 10 || sellTax >= 10) reasons.push(`tax=${buyTax}%/${sellTax}%`);
   if (liqUsd < 10_000) reasons.push(`liqUsd≈${liqUsd.toFixed(0)}`);
 
   const beep =
-    honeypot || riskLevel >= 4
+    honeypot || riskLevel >= 80
       ? "🔴"
-      : riskLevel >= 2 || buyTax >= 5 || sellTax >= 5 || liqUsd < 50_000
+      : riskLevel >= 40 || buyTax >= 5 || sellTax >= 5 || liqUsd < 50_000
         ? "🟡"
         : "🟢";
 
@@ -106,11 +106,11 @@ function beepFromSignals(args: {
 async function computeRisk(tokenAddress: string) {
   const ts = new Date().toISOString();
   const dexUrl = `https://api.dexscreener.com/token-pairs/v1/base/${tokenAddress}`;
-  const honeyUrl = `https://api.honeypot.is/v2/IsHoneypot?address=${tokenAddress}&chainID=${BASE_CHAIN_ID}`;
+  const goPlusUrl = `https://api.gopluslabs.io/api/v1/token_security/${BASE_CHAIN_ID}?contract_addresses=${tokenAddress}`;
 
   const errors: string[] = [];
   let bestPair: any | null = null;
-  let honey: any | null = null;
+  let gp: any | null = null;
 
   try {
     const dex = await fetchJson(dexUrl);
@@ -120,19 +120,41 @@ async function computeRisk(tokenAddress: string) {
   }
 
   try {
-    honey = await fetchJson(honeyUrl);
+    gp = await fetchJson(goPlusUrl);
   } catch (e: any) {
-    errors.push(`Honeypot: ${String(e?.message ?? e)}`);
+    errors.push(`GoPlus: ${String(e?.message ?? e)}`);
   }
 
-  const tokenSymbol = honey?.token?.symbol ?? bestPair?.baseToken?.symbol ?? "UNKNOWN";
+  const d = gp?.result?.[tokenAddress.toLowerCase()] ?? {};
+  const tokenSymbol = d?.token_symbol ?? bestPair?.baseToken?.symbol ?? "UNKNOWN";
   const liqUsd = Number(bestPair?.liquidity?.usd ?? 0);
   const vol24 = Number(bestPair?.volume?.h24 ?? 0);
 
-  const isHoneypot = Boolean(honey?.honeypotResult?.isHoneypot ?? false);
-  const riskLevel = Number(honey?.summary?.riskLevel ?? 99);
-  const buyTax = Number(honey?.simulationResult?.buyTax ?? 0);
-  const sellTax = Number(honey?.simulationResult?.sellTax ?? 0);
+  const isHoneypot = d?.is_honeypot === "1";
+  const buyTax = Math.round(parseFloat(d?.buy_tax ?? "0") * 100);
+  const sellTax = Math.round(parseFloat(d?.sell_tax ?? "0") * 100);
+  const isMintable = d?.is_mintable === "1";
+  const hasHiddenOwner = d?.hidden_owner === "1";
+  const cannotSellAll = d?.cannot_sell_all === "1";
+
+  // 0–100 riskLevel (GoPlus 플래그 기반)
+  const flagCount = [
+    isHoneypot,
+    buyTax > 10,
+    sellTax > 10,
+    isMintable,
+    hasHiddenOwner,
+    cannotSellAll,
+  ].filter(Boolean).length;
+  const riskLevel = isHoneypot
+    ? 99
+    : flagCount >= 4
+      ? 85
+      : flagCount >= 2
+        ? 60
+        : flagCount >= 1
+          ? 40
+          : 10;
 
   const { beep, reasons } = beepFromSignals({
     honeypot: isHoneypot,
