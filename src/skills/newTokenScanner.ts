@@ -56,11 +56,15 @@ export function startNewTokenScanner(
               [`🆕 새 토큰 감지 — 위험!`, formatRisk(r), `📋 주소: \`${addr}\``].join("\n")
             );
           }
-        } catch {}
+        } catch (e: any) {
+          console.error(`[Scanner] honeypot check failed for ${addr}:`, e?.message ?? e);
+        }
 
         await new Promise((r) => setTimeout(r, 1500)); // API rate limit
       }
-    } catch {}
+    } catch (e: any) {
+      console.error("[Scanner] interval tick failed:", e?.message ?? e);
+    }
   }, intervalMs);
 
   (scanTimer as any).unref?.();

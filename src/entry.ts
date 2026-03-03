@@ -90,7 +90,7 @@ function beepFromSignals(args: {
   if (honeypot) reasons.push("isHoneypot=true");
   if (riskLevel >= 40) reasons.push(`riskLevel=${riskLevel}`);
   if (buyTax >= 10 || sellTax >= 10) reasons.push(`tax=${buyTax}%/${sellTax}%`);
-  if (liqUsd < 10_000) reasons.push(`liqUsd≈${liqUsd.toFixed(0)}`);
+  if (liqUsd < 50_000) reasons.push(`liqUsd≈${liqUsd.toFixed(0)}`);
 
   const beep =
     honeypot || riskLevel >= 80
