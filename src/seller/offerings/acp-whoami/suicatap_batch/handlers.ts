@@ -25,11 +25,10 @@ export function requestPayment(_req: any): string {
 
 async function scanOne(tokenAddress: string): Promise<any> {
   const url = `${RISK_BASE}?tokenAddress=${tokenAddress}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15_000);
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15_000);
     const res = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(t);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (e: any) {
@@ -38,6 +37,8 @@ async function scanOne(tokenAddress: string): Promise<any> {
       risk: { beep: "⚪", reasons: [`scan_error: ${e?.message ?? e}`] },
       errors: [String(e?.message ?? e)],
     };
+  } finally {
+    clearTimeout(t);
   }
 }
 

@@ -109,6 +109,7 @@ export async function executeJob(request: any): Promise<ExecuteJobResult> {
           tokenAddress,
           chain,
           verdict: "TEMP_UNAVAILABLE",
+          serviceStatus: "degraded",
           emoji: "🟡",
           topFlags: ["risk endpoint temporarily unavailable"],
           receiptUrl,
