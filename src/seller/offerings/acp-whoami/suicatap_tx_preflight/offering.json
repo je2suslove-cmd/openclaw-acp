@@ -1,6 +1,6 @@
 {
   "name": "suicatap_tx_preflight",
-  "description": "Safety check before approve, buy, or sell on Base. Detects honeypots, high tax, and low liquidity. Returns ALLOW/CAUTION/BLOCK with slippage and position sizing recommendations. Supports approve intent to flag unlimited approve risk.",
+  "description": "Pre-transaction safety check for approve, buy, or sell on Base. Detects honeypots, high tax, and low liquidity. Returns ALLOW/CAUTION/BLOCK with slippage and position sizing. Call this before signing any transaction.",
   "jobFee": 0.15,
   "jobFeeType": "fixed",
   "slaMinutes": 5,

@@ -1,0 +1,25 @@
+{
+  "name": "suicatap_compare",
+  "description": "Compare two Base chain tokens side-by-side for safety. Input tokenA and tokenB addresses, get a detailed comparison table: honeypot status, buy/sell tax, liquidity, risk level, and flags — plus a final verdict on which token is safer. Perfect for agents choosing between two tokens before executing a swap.",
+  "jobFee": 0.03,
+  "jobFeeType": "fixed",
+  "slaMinutes": 10,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenA": {
+        "type": "string",
+        "description": "First Base chain token contract address (0x...)"
+      },
+      "tokenB": {
+        "type": "string",
+        "description": "Second Base chain token contract address (0x...)"
+      }
+    },
+    "required": ["tokenA", "tokenB"]
+  },
+  "price": 0.03,
+  "jobInput": "{\"tokenA\":\"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\",\"tokenB\":\"0x4200000000000000000000000000000000000006\"}",
+  "jobOutput": "{\"verdict\":\"tokenA\",\"saferSymbol\":\"USDC\",\"comparison\":{\"tokenA\":{\"symbol\":\"USDC\",\"score\":99,\"riskLevel\":1,\"isHoneypot\":false},\"tokenB\":{\"symbol\":\"WETH\",\"score\":95,\"riskLevel\":5,\"isHoneypot\":false}},\"reason\":\"USDC has lower risk level (1 vs 5)\"}"
+}

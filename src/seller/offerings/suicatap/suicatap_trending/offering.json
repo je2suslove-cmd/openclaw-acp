@@ -1,0 +1,16 @@
+{
+  "name": "suicatap_trending",
+  "description": "Scan Base chain trending tokens from the last 24h and surface the Top 10 riskiest. No input needed — just call and receive a ranked danger list with honeypot, tax, and risk flags per token. Powered by DexScreener + GoPlus. Great for risk-aware agents that want to avoid rugs before they happen.",
+  "jobFee": 0.02,
+  "jobFeeType": "fixed",
+  "slaMinutes": 10,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "price": 0.02,
+  "jobInput": "{}",
+  "jobOutput": "{\"scannedAt\":\"2026-03-04T00:00:00.000Z\",\"chain\":\"base\",\"topRisky\":[{\"rank\":1,\"address\":\"0x...\",\"symbol\":\"SCAM\",\"riskLevel\":99,\"isHoneypot\":true,\"buyTax\":0,\"sellTax\":99,\"flags\":[\"HONEYPOT\"],\"verdict\":\"🔴 BLOCK\"}]}"
+}
