@@ -258,16 +258,27 @@ setTimeout(async () => {
       const { getTelegramBot } = await import("./telegramBot.js");
       const bot = getTelegramBot();
       if (bot) {
+        const sendMsg = (chatId: number | string, text: string) =>
+          bot.telegram.sendMessage(chatId, text);
+
         const { startNewTokenScanner } = await import("./skills/newTokenScanner.js");
-        startNewTokenScanner(
-          (chatId, text) => bot.telegram.sendMessage(chatId, text),
-          ADMIN_CHAT_ID
-        );
+        startNewTokenScanner(sendMsg, ADMIN_CHAT_ID);
+
+        const { startBountyPoller } = await import("./skills/bountyPoller.js");
+        startBountyPoller(sendMsg, ADMIN_CHAT_ID);
       }
     } catch (e: any) {
       console.error("[Scanner] init failed:", e?.message ?? e);
     }
   } else {
-    console.log("[Scanner] ADMIN_CHAT_ID not set; 새 토큰 알림 비활성");
+    console.log("[Scanner] ADMIN_CHAT_ID not set; 새 토큰 알림 및 바운티 폴링 비활성");
+
+    // ADMIN_CHAT_ID 없어도 바운티 폴링은 실행 (알림 없이 cleanup만)
+    try {
+      const { startBountyPoller } = await import("./skills/bountyPoller.js");
+      startBountyPoller();
+    } catch (e: any) {
+      console.error("[BountyPoller] init failed:", e?.message ?? e);
+    }
   }
 }, 30000); // 30초 후 시작
