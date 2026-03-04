@@ -4,10 +4,12 @@ import { recordJobResult } from "../../skills/failureGuard.js";
 // Seller runtime — main entrypoint.
 //
 // Usage:
-//   npx tsx src/seller/runtime/seller.ts
+//   npx tsx src/seller/runtime/seller.ts   (standalone)
 //   (or)  acp serve start
+//   (or)  imported as a side-effect from entry.ts (embedded)
 // =============================================================================
 
+import { fileURLToPath } from "url";
 import { connectAcpSocket } from "./acpSocket.js";
 import { acceptOrRejectJob, requestPayment, deliverJob } from "./sellerApi.js";
 import { loadOffering, listOfferings } from "./offerings.js";
@@ -20,6 +22,13 @@ import {
   removePidFromConfig,
   sanitizeAgentName,
 } from "../../lib/config.js";
+
+/**
+ * True when this file is the process entry point (standalone).
+ * False when imported as a side-effect by entry.ts (embedded in HTTP server).
+ * In embedded mode, failures must be non-fatal so the HTTP server keeps running.
+ */
+const IS_MAIN_PROCESS = process.argv[1] === fileURLToPath(import.meta.url);
 
 function setupCleanupHandlers(): void {
   const cleanup = () => {
@@ -38,12 +47,14 @@ function setupCleanupHandlers(): void {
   process.on("uncaughtException", (err) => {
     console.error("[seller] Uncaught exception:", err);
     cleanup();
-    process.exit(1);
+    // Only exit in standalone mode. When embedded in entry.ts, the HTTP server must survive.
+    if (IS_MAIN_PROCESS) process.exit(1);
   });
   process.on("unhandledRejection", (reason, promise) => {
     console.error("[seller] Unhandled rejection at:", promise, "reason:", reason);
     cleanup();
-    process.exit(1);
+    // Only exit in standalone mode. When embedded in entry.ts, the HTTP server must survive.
+    if (IS_MAIN_PROCESS) process.exit(1);
   });
 }
 
@@ -238,7 +249,10 @@ async function main() {
     console.log(`[seller] Agent: ${agentData.name} (dir: ${agentDirName})`);
   } catch (err) {
     console.error("[seller] Failed to resolve agent info:", err);
-    process.exit(1);
+    // In standalone mode, exit to alert the operator. When embedded in entry.ts,
+    // log the error and return — the HTTP server must keep running.
+    if (IS_MAIN_PROCESS) process.exit(1);
+    return;
   }
 
   const offerings = listOfferings(agentDirName);
@@ -268,5 +282,5 @@ async function main() {
 
 main().catch((err) => {
   console.error("[seller] Fatal error:", err);
-  process.exit(1);
+  if (IS_MAIN_PROCESS) process.exit(1);
 });
