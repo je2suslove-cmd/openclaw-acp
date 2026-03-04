@@ -227,3 +227,67 @@ export async function syncBountyJobStatus(params: {
   });
   return extractData<unknown>(res.data);
 }
+
+// =============================================================================
+// Marketplace scanning — list open bounties + submit provider application
+// =============================================================================
+
+export interface MarketplaceBounty {
+  id: string | number;
+  bountyId?: string;
+  title: string;
+  description: string;
+  budget: number;
+  tags?: string;
+  category?: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Fetch all open bounties from the ACP marketplace.
+ * Returns empty array on any error (non-fatal).
+ */
+export async function fetchOpenBounties(): Promise<MarketplaceBounty[]> {
+  try {
+    const res = await api.get("/bounties", { params: { status: "open" } });
+    const body = extractData<any>(res.data);
+    const list: unknown[] = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.bounties)
+        ? body.bounties
+        : Array.isArray(body?.data)
+          ? body.data
+          : [];
+    return list.filter(
+      (b): b is MarketplaceBounty =>
+        b != null &&
+        typeof b === "object" &&
+        (String((b as any).status ?? "").toLowerCase() === "open" || !(b as any).status)
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Apply to a bounty as a provider with the given offering.
+ * Returns { success: false } silently on any error (already closed, duplicate, etc.).
+ */
+export async function applyToBounty(
+  bountyId: string,
+  offeringName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await api.post(`/bounties/${encodeURIComponent(bountyId)}/apply`, {
+      offering_name: offeringName,
+    });
+    return { success: true };
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.message ??
+      err?.response?.data?.detail ??
+      (err instanceof Error ? err.message : String(err));
+    return { success: false, error: String(msg) };
+  }
+}
