@@ -1,0 +1,41 @@
+{
+  "name": "suicatap_policy_gate",
+  "description": "Apply your own risk policy to any Base token and receive a PASS or BLOCK verdict. Set custom thresholds: minScore (0-100), maxBuyTax (%), maxSellTax (%), minLiquidity (USD), allowHoneypot (bool). The gate checks the token against your rules and explains exactly which rule triggered a BLOCK. Ideal for DeFi agents with strict risk parameters.",
+  "jobFee": 0.02,
+  "jobFeeType": "fixed",
+  "slaMinutes": 5,
+  "requiredFunds": false,
+  "requirement": {
+    "type": "object",
+    "properties": {
+      "tokenAddress": {
+        "type": "string",
+        "description": "Base chain token contract address (0x...)"
+      },
+      "minScore": {
+        "type": "number",
+        "description": "Minimum safety score required (0-100). Default: 0 (no minimum)"
+      },
+      "maxBuyTax": {
+        "type": "number",
+        "description": "Maximum allowed buy tax in %. Default: 100 (no limit)"
+      },
+      "maxSellTax": {
+        "type": "number",
+        "description": "Maximum allowed sell tax in %. Default: 100 (no limit)"
+      },
+      "minLiquidity": {
+        "type": "number",
+        "description": "Minimum liquidity in USD. Default: 0 (no minimum)"
+      },
+      "allowHoneypot": {
+        "type": "boolean",
+        "description": "Whether to allow honeypot tokens. Default: false"
+      }
+    },
+    "required": ["tokenAddress"]
+  },
+  "price": 0.02,
+  "jobInput": "{\"tokenAddress\":\"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\",\"minScore\":50,\"maxBuyTax\":5,\"maxSellTax\":5,\"minLiquidity\":10000,\"allowHoneypot\":false}",
+  "jobOutput": "{\"verdict\":\"PASS\",\"token\":\"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913\",\"symbol\":\"USDC\",\"score\":99,\"policyChecks\":[{\"rule\":\"minScore\",\"required\":50,\"actual\":99,\"passed\":true},{\"rule\":\"maxBuyTax\",\"required\":5,\"actual\":0,\"passed\":true}]}"
+}
