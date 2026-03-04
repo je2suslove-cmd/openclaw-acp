@@ -1,6 +1,6 @@
 {
   "name": "suicatap_solana_risk",
-  "description": "Solana token rugpull risk check via RugCheck.xyz. Returns score (0–1000, higher=safer), riskLevel (0–100), risk flags, and PASS/CAUTION/BLOCK verdict.",
+  "description": "Solana token safety check via RugCheck.xyz. Detects rug pull risk, freeze authority, and mint risk. Returns PASS/CAUTION/BLOCK verdict with score (0–1000) and risk flags. Call this before buying or swapping on Solana.",
   "jobFee": 0.05,
   "jobFeeType": "fixed",
   "slaMinutes": 5,

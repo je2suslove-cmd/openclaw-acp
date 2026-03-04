@@ -1,6 +1,6 @@
 {
   "name": "suicatap_wallet_sweep",
-  "description": "Scan all token holdings in a wallet for risk. Identifies honeypots, high-tax tokens, and rugged positions.",
+  "description": "Wallet risk sweep: checks all token holdings for honeypots, high-tax tokens, and rugged positions on Base/ETH/BSC. Returns PASS/CAUTION/BLOCK per token with a wallet-level summary. Use to audit a wallet before trading or transferring.",
   "jobFee": 0.3,
   "jobFeeType": "fixed",
   "slaMinutes": 10,
