@@ -1,6 +1,6 @@
 {
   "name": "suicatap_batch",
-  "description": "Batch scan up to 5 tokens at once on Base/ETH/BSC. Returns risk verdict for each token in a single call.",
+  "description": "Batch safety check: scan up to 5 tokens at once on Base/ETH/BSC. Detects honeypots, rug pulls, and high tax for each address. Returns PASS/CAUTION/BLOCK per token in one call. Use when screening a list of tokens before rebalancing.",
   "jobFee": 0.15,
   "jobFeeType": "fixed",
   "slaMinutes": 10,
