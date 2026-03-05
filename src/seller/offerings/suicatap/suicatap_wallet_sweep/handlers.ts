@@ -22,6 +22,14 @@ export function requestPayment(_req: any): string {
   return "SuicaTap Wallet Sweep — scanning wallet portfolio risk.";
 }
 
+function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExecuteJobResult>((resolve) => {
+    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function scanOne(tokenAddress: string, chain: string): Promise<any> {
   const url = `${RISK_BASE}?tokenAddress=${tokenAddress}&chain=${chain}`;
   const ctrl = new AbortController();
@@ -30,11 +38,11 @@ async function scanOne(tokenAddress: string, chain: string): Promise<any> {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch (e: any) {
+  } catch {
     return {
       token: { address: tokenAddress, symbol: "UNKNOWN" },
-      risk: { beep: "⚪", reasons: [`scan_error: ${e?.message ?? e}`] },
-      errors: [String(e?.message ?? e)],
+      risk: { beep: "⚪", reasons: ["API temporarily unavailable, partial result"] },
+      errors: ["API temporarily unavailable, partial result"],
     };
   } finally {
     clearTimeout(t);
@@ -42,103 +50,113 @@ async function scanOne(tokenAddress: string, chain: string): Promise<any> {
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
-  const tokenAddresses: string[] = req.tokenAddresses;
-  const chain: string = req.chain ?? "base";
-  const walletLabel: string = req.walletLabel ?? "Unknown Wallet";
-  const t0 = Date.now();
-  logJobEvent({ phase: "start", offering: "suicatap_wallet_sweep", chain });
-  const ts = new Date().toISOString();
-
-  const results = await Promise.all(tokenAddresses.map((a) => scanOne(a, chain)));
-
-  // 포트폴리오 요약
-  const redCount = results.filter((r) => r?.risk?.beep === "🔴").length;
-  const yellowCount = results.filter((r) => r?.risk?.beep === "🟡").length;
-  const greenCount = results.filter((r) => r?.risk?.beep === "🟢").length;
-
-  const overallRisk =
-    redCount > 0 ? "🔴 HIGH RISK" : yellowCount > 0 ? "🟡 MEDIUM RISK" : "🟢 LOW RISK";
-
-  const lines: string[] = [];
-  lines.push(`🍉 **SuicaTap Wallet Sweep — ${walletLabel}**`);
-  lines.push(`- Chain: ${chain.toUpperCase()}`);
-  lines.push(`- Time: ${ts}`);
-  lines.push(`- Tokens scanned: ${tokenAddresses.length}`);
-  lines.push("");
-  lines.push(`## Portfolio Summary: ${overallRisk}`);
-  lines.push(`- 🟢 Safe: ${greenCount} | 🟡 Caution: ${yellowCount} | 🔴 Danger: ${redCount}`);
-  lines.push("");
-  lines.push("## Token Results");
-
-  results.forEach((r, i) => {
-    const addr = tokenAddresses[i];
-    const symbol = r?.token?.symbol ?? "UNKNOWN";
-    const beep = r?.risk?.beep ?? "⚪";
-    const reasons = (r?.risk?.reasons ?? []).join(", ");
-    const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
-    const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
-    const honey = r?.risk?.isHoneypot ? "⚠️ HONEYPOT" : "OK";
-    const receipt = `${RISK_BASE}?tokenAddress=${addr}&chain=${chain}`;
-
-    lines.push(`### [${i + 1}] ${beep} ${symbol}`);
-    lines.push(`- Address: \`${addr}\``);
-    lines.push(`- Risk: ${reasons}`);
-    lines.push(`- Honeypot: ${honey} | Liquidity: ${liq} | Tax: ${tax}`);
-    lines.push(`- Receipt: ${receipt}`);
-    lines.push("");
-  });
-
-  if (redCount > 0) {
-    lines.push("## ⚠️ Action Required");
-    lines.push("The following tokens are HIGH RISK — consider removing from portfolio:");
-    results.forEach((r, i) => {
-      if (r?.risk?.beep === "🔴") {
-        lines.push(`- ${r?.token?.symbol ?? tokenAddresses[i]} (\`${tokenAddresses[i]}\`)`);
-      }
-    });
-    lines.push("");
+  // 1. Input validation — return, not throw
+  if (!Array.isArray(req?.tokenAddresses) || req.tokenAddresses.length === 0) {
+    return { deliverable: "Invalid request: tokenAddresses must be a non-empty array" };
   }
 
-  lines.push("> Note: Technical risk summary only. Not financial advice.");
-  lines.push("");
-  lines.push("## Receipt (JSON)");
-  lines.push("```json");
-  lines.push(
-    JSON.stringify(
-      {
-        version: "suicatap_wallet_sweep_v1",
-        timestamp: ts,
+  // 2. SLA 4-min timeout wrapper
+  return withSla(
+    (async (): Promise<ExecuteJobResult> => {
+      const tokenAddresses: string[] = req.tokenAddresses;
+      const chain: string = req.chain ?? "base";
+      const walletLabel: string = req.walletLabel ?? "Unknown Wallet";
+      const t0 = Date.now();
+      logJobEvent({ phase: "start", offering: "suicatap_wallet_sweep", chain });
+      const ts = new Date().toISOString();
+
+      const results = await Promise.all(tokenAddresses.map((a) => scanOne(a, chain)));
+
+      // 포트폴리오 요약
+      const redCount = results.filter((r) => r?.risk?.beep === "🔴").length;
+      const yellowCount = results.filter((r) => r?.risk?.beep === "🟡").length;
+      const greenCount = results.filter((r) => r?.risk?.beep === "🟢").length;
+
+      const overallRisk =
+        redCount > 0 ? "🔴 HIGH RISK" : yellowCount > 0 ? "🟡 MEDIUM RISK" : "🟢 LOW RISK";
+
+      const lines: string[] = [];
+      lines.push(`🍉 **SuicaTap Wallet Sweep — ${walletLabel}**`);
+      lines.push(`- Chain: ${chain.toUpperCase()}`);
+      lines.push(`- Time: ${ts}`);
+      lines.push(`- Tokens scanned: ${tokenAddresses.length}`);
+      lines.push("");
+      lines.push(`## Portfolio Summary: ${overallRisk}`);
+      lines.push(`- 🟢 Safe: ${greenCount} | 🟡 Caution: ${yellowCount} | 🔴 Danger: ${redCount}`);
+      lines.push("");
+      lines.push("## Token Results");
+
+      results.forEach((r, i) => {
+        const addr = tokenAddresses[i];
+        const symbol = r?.token?.symbol ?? "UNKNOWN";
+        const beep = r?.risk?.beep ?? "⚪";
+        const reasons = (r?.risk?.reasons ?? []).join(", ");
+        const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
+        const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
+        const honey = r?.risk?.isHoneypot ? "⚠️ HONEYPOT" : "OK";
+        const receipt = `${RISK_BASE}?tokenAddress=${addr}&chain=${chain}`;
+
+        lines.push(`### [${i + 1}] ${beep} ${symbol}`);
+        lines.push(`- Address: \`${addr}\``);
+        lines.push(`- Risk: ${reasons}`);
+        lines.push(`- Honeypot: ${honey} | Liquidity: ${liq} | Tax: ${tax}`);
+        lines.push(`- Receipt: ${receipt}`);
+        lines.push("");
+      });
+
+      if (redCount > 0) {
+        lines.push("## ⚠️ Action Required");
+        lines.push("The following tokens are HIGH RISK — consider removing from portfolio:");
+        results.forEach((r, i) => {
+          if (r?.risk?.beep === "🔴") {
+            lines.push(`- ${r?.token?.symbol ?? tokenAddresses[i]} (\`${tokenAddresses[i]}\`)`);
+          }
+        });
+        lines.push("");
+      }
+
+      lines.push("> Note: Technical risk summary only. Not financial advice.");
+      lines.push("");
+      lines.push("## Receipt (JSON)");
+      lines.push("```json");
+      lines.push(
+        JSON.stringify(
+          {
+            version: "suicatap_wallet_sweep_v1",
+            timestamp: ts,
+            chain,
+            walletLabel,
+            summary: { overallRisk, redCount, yellowCount, greenCount },
+            tokens: results.map((r, i) => ({
+              address: tokenAddresses[i],
+              symbol: r?.token?.symbol ?? "UNKNOWN",
+              beep: r?.risk?.beep ?? "⚪",
+              reasons: r?.risk?.reasons ?? [],
+              liqUsd: r?.risk?.liqUsd ?? null,
+              buyTax: r?.risk?.buyTax ?? null,
+              sellTax: r?.risk?.sellTax ?? null,
+              isHoneypot: r?.risk?.isHoneypot ?? false,
+              errors: r?.errors ?? [],
+            })),
+          },
+          null,
+          2
+        )
+      );
+      lines.push("```");
+
+      const allErrors = results.flatMap((r) => r?.errors ?? []);
+      const outcome = redCount > 0 ? "BLOCK" : yellowCount > 0 ? "CAUTION" : "PASS";
+      logJobEvent({
+        phase: allErrors.length > 0 ? "fail" : "ok",
+        offering: "suicatap_wallet_sweep",
         chain,
-        walletLabel,
-        summary: { overallRisk, redCount, yellowCount, greenCount },
-        tokens: results.map((r, i) => ({
-          address: tokenAddresses[i],
-          symbol: r?.token?.symbol ?? "UNKNOWN",
-          beep: r?.risk?.beep ?? "⚪",
-          reasons: r?.risk?.reasons ?? [],
-          liqUsd: r?.risk?.liqUsd ?? null,
-          buyTax: r?.risk?.buyTax ?? null,
-          sellTax: r?.risk?.sellTax ?? null,
-          isHoneypot: r?.risk?.isHoneypot ?? false,
-          errors: r?.errors ?? [],
-        })),
-      },
-      null,
-      2
-    )
+        durationMs: Date.now() - t0,
+        outcome,
+        reasonCode: allErrors.length > 0 ? reasonFromErrors(allErrors) : undefined,
+      });
+
+      return { deliverable: lines.join("\n") };
+    })()
   );
-  lines.push("```");
-
-  const allErrors = results.flatMap((r) => r?.errors ?? []);
-  const outcome = redCount > 0 ? "BLOCK" : yellowCount > 0 ? "CAUTION" : "PASS";
-  logJobEvent({
-    phase: allErrors.length > 0 ? "fail" : "ok",
-    offering: "suicatap_wallet_sweep",
-    chain,
-    durationMs: Date.now() - t0,
-    outcome,
-    reasonCode: allErrors.length > 0 ? reasonFromErrors(allErrors) : undefined,
-  });
-
-  return { deliverable: lines.join("\n") };
 }

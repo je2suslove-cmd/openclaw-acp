@@ -9,6 +9,14 @@ function isHexAddress(s: unknown): s is string {
   return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
 }
 
+function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExecuteJobResult>((resolve) => {
+    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function fetchJson(url: string, timeoutMs = 12_000): Promise<any> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -52,155 +60,171 @@ export function requestPayment(_: any): string {
 }
 
 export async function executeJob(request: Record<string, any>): Promise<ExecuteJobResult> {
-  const tokenAddress = (request.tokenAddress as string).trim();
-  const minScore: number = typeof request.minScore === "number" ? request.minScore : 0;
-  const maxBuyTax: number = typeof request.maxBuyTax === "number" ? request.maxBuyTax : 100;
-  const maxSellTax: number = typeof request.maxSellTax === "number" ? request.maxSellTax : 100;
-  const minLiquidity: number = typeof request.minLiquidity === "number" ? request.minLiquidity : 0;
-  const allowHoneypot: boolean = request.allowHoneypot === true;
-
-  const t0 = Date.now();
-  const ts = new Date().toISOString();
-  logJobEvent({
-    phase: "start",
-    offering: "suicatap_policy_gate",
-    chain: "base",
-    token: maskAddress(tokenAddress),
-  });
-
-  const errors: string[] = [];
-  let raw: any = null;
-  const receiptUrl = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}`;
-
-  try {
-    raw = await fetchJson(receiptUrl);
-  } catch (e: any) {
-    errors.push(`ResourceAPI: ${String(e?.message ?? e)}`);
+  // 1. Input validation — return, not throw
+  if (!isHexAddress(request?.tokenAddress)) {
+    return { deliverable: "Invalid request: tokenAddress must be a 0x… 40-byte address" };
   }
 
-  const risk = raw?.risk ?? {};
-  const symbol: string = raw?.token?.symbol ?? "UNKNOWN";
-  const riskLevel: number = Number(risk.riskLevel ?? 99);
-  const score: number = Math.max(0, 100 - riskLevel);
-  const buyTax: number = Number(risk.buyTax ?? 0);
-  const sellTax: number = Number(risk.sellTax ?? 0);
-  const liqUsd: number = Number(risk.liqUsd ?? 0);
-  const isHoneypot: boolean = Boolean(risk.isHoneypot ?? false);
+  // 2. SLA 4-min timeout wrapper
+  return withSla(
+    (async (): Promise<ExecuteJobResult> => {
+      const tokenAddress = (request.tokenAddress as string).trim();
+      const minScore: number = typeof request.minScore === "number" ? request.minScore : 0;
+      const maxBuyTax: number = typeof request.maxBuyTax === "number" ? request.maxBuyTax : 100;
+      const maxSellTax: number = typeof request.maxSellTax === "number" ? request.maxSellTax : 100;
+      const minLiquidity: number =
+        typeof request.minLiquidity === "number" ? request.minLiquidity : 0;
+      const allowHoneypot: boolean = request.allowHoneypot === true;
 
-  if (Array.isArray(raw?.errors)) errors.push(...raw.errors);
+      const t0 = Date.now();
+      const ts = new Date().toISOString();
+      logJobEvent({
+        phase: "start",
+        offering: "suicatap_policy_gate",
+        chain: "base",
+        token: maskAddress(tokenAddress),
+      });
 
-  // Policy checks
-  type PolicyCheck = {
-    rule: string;
-    threshold: string;
-    actual: string;
-    passed: boolean;
-    failReason?: string;
-  };
+      const errors: string[] = [];
+      let raw: any = null;
+      const receiptUrl = `${RESOURCE_BASE}?tokenAddress=${tokenAddress}`;
 
-  const checks: PolicyCheck[] = [];
+      try {
+        raw = await fetchJson(receiptUrl);
+      } catch {
+        // 3. API failure fallback — never throw
+        errors.push("API temporarily unavailable, partial result");
+      }
 
-  checks.push({
-    rule: "allowHoneypot",
-    threshold: String(allowHoneypot),
-    actual: String(isHoneypot),
-    passed: allowHoneypot || !isHoneypot,
-    failReason: !allowHoneypot && isHoneypot ? "Token is a honeypot" : undefined,
-  });
+      const risk = raw?.risk ?? {};
+      const symbol: string = raw?.token?.symbol ?? "UNKNOWN";
+      const riskLevel: number = Number(risk.riskLevel ?? 99);
+      const score: number = Math.max(0, 100 - riskLevel);
+      const buyTax: number = Number(risk.buyTax ?? 0);
+      const sellTax: number = Number(risk.sellTax ?? 0);
+      const liqUsd: number = Number(risk.liqUsd ?? 0);
+      const isHoneypot: boolean = Boolean(risk.isHoneypot ?? false);
 
-  checks.push({
-    rule: "minScore",
-    threshold: `>=${minScore}`,
-    actual: String(score),
-    passed: score >= minScore,
-    failReason: score < minScore ? `Score ${score} < required ${minScore}` : undefined,
-  });
+      if (Array.isArray(raw?.errors)) errors.push(...raw.errors);
 
-  checks.push({
-    rule: "maxBuyTax",
-    threshold: `<=${maxBuyTax}%`,
-    actual: `${buyTax.toFixed(2)}%`,
-    passed: buyTax <= maxBuyTax,
-    failReason:
-      buyTax > maxBuyTax ? `Buy tax ${buyTax.toFixed(2)}% exceeds max ${maxBuyTax}%` : undefined,
-  });
+      // Policy checks
+      type PolicyCheck = {
+        rule: string;
+        threshold: string;
+        actual: string;
+        passed: boolean;
+        failReason?: string;
+      };
 
-  checks.push({
-    rule: "maxSellTax",
-    threshold: `<=${maxSellTax}%`,
-    actual: `${sellTax.toFixed(2)}%`,
-    passed: sellTax <= maxSellTax,
-    failReason:
-      sellTax > maxSellTax
-        ? `Sell tax ${sellTax.toFixed(2)}% exceeds max ${maxSellTax}%`
-        : undefined,
-  });
+      const checks: PolicyCheck[] = [];
 
-  checks.push({
-    rule: "minLiquidity",
-    threshold: `>=$${minLiquidity}`,
-    actual: `$${liqUsd.toFixed(0)}`,
-    passed: liqUsd >= minLiquidity,
-    failReason:
-      liqUsd < minLiquidity
-        ? `Liquidity $${liqUsd.toFixed(0)} < required $${minLiquidity}`
-        : undefined,
-  });
+      checks.push({
+        rule: "allowHoneypot",
+        threshold: String(allowHoneypot),
+        actual: String(isHoneypot),
+        passed: allowHoneypot || !isHoneypot,
+        failReason: !allowHoneypot && isHoneypot ? "Token is a honeypot" : undefined,
+      });
 
-  const failedChecks = checks.filter((c) => !c.passed);
-  const verdict = failedChecks.length === 0 ? "PASS" : "BLOCK";
-  const verdictEmoji = verdict === "PASS" ? "🟢" : "🔴";
+      checks.push({
+        rule: "minScore",
+        threshold: `>=${minScore}`,
+        actual: String(score),
+        passed: score >= minScore,
+        failReason: score < minScore ? `Score ${score} < required ${minScore}` : undefined,
+      });
 
-  const receipt = {
-    version: "suicatap_policy_gate_v1",
-    timestamp: ts,
-    chainID: 8453,
-    token: { address: tokenAddress, symbol },
-    policy: { minScore, maxBuyTax, maxSellTax, minLiquidity, allowHoneypot },
-    tokenMetrics: { score, riskLevel, buyTax, sellTax, liqUsd, isHoneypot },
-    policyChecks: checks,
-    verdict,
-    blockedBy: failedChecks.map((c) => c.failReason).filter(Boolean),
-    errors,
-  };
+      checks.push({
+        rule: "maxBuyTax",
+        threshold: `<=${maxBuyTax}%`,
+        actual: `${buyTax.toFixed(2)}%`,
+        passed: buyTax <= maxBuyTax,
+        failReason:
+          buyTax > maxBuyTax
+            ? `Buy tax ${buyTax.toFixed(2)}% exceeds max ${maxBuyTax}%`
+            : undefined,
+      });
 
-  const lines: string[] = [];
-  lines.push(`🍉 **SuicaTap PolicyGate — ${verdictEmoji} ${verdict}**`);
-  lines.push(`- Token: \`${tokenAddress}\` (${symbol})`);
-  lines.push(`- Time: ${ts}`);
-  lines.push("");
-  lines.push(`## Verdict: ${verdictEmoji} **${verdict}**`);
-  if (failedChecks.length > 0) {
-    lines.push("**Failed policy checks:**");
-    failedChecks.forEach((c) => lines.push(`- ❌ ${c.rule}: ${c.failReason}`));
-  } else {
-    lines.push("✅ All policy checks passed.");
-  }
-  lines.push("");
-  lines.push("## Policy");
-  lines.push(`| Rule | Threshold | Actual | Result |`);
-  lines.push(`|------|-----------|--------|--------|`);
-  checks.forEach((c) =>
-    lines.push(`| ${c.rule} | ${c.threshold} | ${c.actual} | ${c.passed ? "✅" : "❌"} |`)
+      checks.push({
+        rule: "maxSellTax",
+        threshold: `<=${maxSellTax}%`,
+        actual: `${sellTax.toFixed(2)}%`,
+        passed: sellTax <= maxSellTax,
+        failReason:
+          sellTax > maxSellTax
+            ? `Sell tax ${sellTax.toFixed(2)}% exceeds max ${maxSellTax}%`
+            : undefined,
+      });
+
+      checks.push({
+        rule: "minLiquidity",
+        threshold: `>=$${minLiquidity}`,
+        actual: `$${liqUsd.toFixed(0)}`,
+        passed: liqUsd >= minLiquidity,
+        failReason:
+          liqUsd < minLiquidity
+            ? `Liquidity $${liqUsd.toFixed(0)} < required $${minLiquidity}`
+            : undefined,
+      });
+
+      const failedChecks = checks.filter((c) => !c.passed);
+      const verdict = failedChecks.length === 0 ? "PASS" : "BLOCK";
+      const verdictEmoji = verdict === "PASS" ? "🟢" : "🔴";
+
+      const receipt = {
+        version: "suicatap_policy_gate_v1",
+        timestamp: ts,
+        chainID: 8453,
+        token: { address: tokenAddress, symbol },
+        policy: { minScore, maxBuyTax, maxSellTax, minLiquidity, allowHoneypot },
+        tokenMetrics: { score, riskLevel, buyTax, sellTax, liqUsd, isHoneypot },
+        policyChecks: checks,
+        verdict,
+        blockedBy: failedChecks.map((c) => c.failReason).filter(Boolean),
+        errors,
+      };
+
+      const lines: string[] = [];
+      lines.push(`🍉 **SuicaTap PolicyGate — ${verdictEmoji} ${verdict}**`);
+      lines.push(`- Token: \`${tokenAddress}\` (${symbol})`);
+      lines.push(`- Time: ${ts}`);
+      lines.push("");
+      lines.push(`## Verdict: ${verdictEmoji} **${verdict}**`);
+      if (failedChecks.length > 0) {
+        lines.push("**Failed policy checks:**");
+        failedChecks.forEach((c) => lines.push(`- ❌ ${c.rule}: ${c.failReason}`));
+      } else {
+        lines.push("✅ All policy checks passed.");
+      }
+      lines.push("");
+      lines.push("## Policy");
+      lines.push(`| Rule | Threshold | Actual | Result |`);
+      lines.push(`|------|-----------|--------|--------|`);
+      checks.forEach((c) =>
+        lines.push(`| ${c.rule} | ${c.threshold} | ${c.actual} | ${c.passed ? "✅" : "❌"} |`)
+      );
+      lines.push("");
+      lines.push(
+        `Score: ${score}/100 | RiskLevel: ${riskLevel} | Liquidity: $${liqUsd.toFixed(0)}`
+      );
+      lines.push("");
+      lines.push("## Receipt (JSON)");
+      lines.push("```json");
+      lines.push(JSON.stringify(receipt, null, 2));
+      lines.push("```");
+      lines.push("> Not financial advice. Always DYOR.");
+
+      logJobEvent({
+        phase: errors.length > 0 ? "fail" : "ok",
+        offering: "suicatap_policy_gate",
+        chain: "base",
+        token: maskAddress(tokenAddress),
+        durationMs: Date.now() - t0,
+        outcome: verdict,
+        reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
+      });
+
+      return { deliverable: lines.join("\n") + UPSELL };
+    })()
   );
-  lines.push("");
-  lines.push(`Score: ${score}/100 | RiskLevel: ${riskLevel} | Liquidity: $${liqUsd.toFixed(0)}`);
-  lines.push("");
-  lines.push("## Receipt (JSON)");
-  lines.push("```json");
-  lines.push(JSON.stringify(receipt, null, 2));
-  lines.push("```");
-  lines.push("> Not financial advice. Always DYOR.");
-
-  logJobEvent({
-    phase: errors.length > 0 ? "fail" : "ok",
-    offering: "suicatap_policy_gate",
-    chain: "base",
-    token: maskAddress(tokenAddress),
-    durationMs: Date.now() - t0,
-    outcome: verdict,
-    reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
-  });
-
-  return { deliverable: lines.join("\n") + UPSELL };
 }
