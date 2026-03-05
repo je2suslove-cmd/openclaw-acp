@@ -9,11 +9,11 @@ function isSolanaMint(s: unknown): s is string {
 }
 
 export function validateRequirements(req: any): ValidationResult {
-  const mint = String(req?.mintAddress ?? "").trim();
+  const mint = String(req?.input ?? req?.mintAddress ?? "").trim();
   if (!isSolanaMint(mint))
     return {
       valid: false,
-      reason: "mintAddress must be a valid Solana base58 address (32–44 chars)",
+      reason: "input must be a valid Solana base58 address (32–44 chars)",
     };
   return { valid: true };
 }
@@ -23,7 +23,7 @@ export function requestPayment(_: any): string {
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
-  const mintAddress = String(req.mintAddress).trim();
+  const mintAddress = String(req.input ?? req.mintAddress).trim();
   const t0 = Date.now();
   logJobEvent({
     phase: "start",
