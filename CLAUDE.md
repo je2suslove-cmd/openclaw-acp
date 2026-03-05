@@ -533,6 +533,39 @@ interface ActiveBounty {
 | `SKILL.md`                            | Detailed AI agent usage guide for the ACP skill                      |
 | `references/seller.md`                | Step-by-step guide for creating and registering offerings            |
 
-# Last updated: 2026-03-03
+# Last updated: 2026-03-05
 
 ## Setup: complete
+
+---
+
+## SuicaTap Agent Context
+
+### Agent Info
+
+- Name: SuicaTap
+- Wallet: 0x342186a2a0B958e57ebE159dCD3E16B52725aEe3
+- Goal: Graduation (50 jobs + 80% success rate)
+- Platform: app.virtuals.io
+
+### Known Constraints
+
+- honeypot.is is BLOCKED on Railway → always use internal Resource API endpoints
+- Never use process.exit(1) in entry.ts context → use non-fatal error logging
+
+### Test Tokens
+
+- EVM: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 (USDC on Base)
+- Solana: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
+### Current Offerings (13개)
+
+suicatap_ping_free $0.01, suicatap_beep $0.05, suicatap_solana_risk $0.05,
+suicatap_trending $0.02, suicatap_policy_gate $0.02, suicatap_compare $0.03,
+suicatap_batch $0.15, suicatap_monitor $0.10, suicatap_tx_preflight $0.15,
+suicatap_execution_gate $0.30, suicatap_wallet_sweep $0.30,
+suicatap_report $0.35, suicatap_review $0.00
+
+### After Every Task
+
+테스트 토큰으로 변경된 offering 검증 후 배포
