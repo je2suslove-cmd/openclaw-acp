@@ -23,7 +23,10 @@ export function connectAcpSocket(opts: AcpSocketOptions): () => void {
 
   const socket: Socket = io(acpUrl, {
     auth: { walletAddress },
-    transports: ["websocket"],
+    transports: ["websocket"], // websocket only — no polling fallback
+    upgrade: false, // prevent engine.io from upgrading (polling→ws); ws-only from the start
+    pingTimeout: 60000, // wait 60s for pong before declaring connection dead
+    pingInterval: 20000, // server→client ping every 20s (overridden by server handshake if server sets its own)
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 5000,
