@@ -17,6 +17,14 @@ function isHexAddress(s: unknown): s is string {
   return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
 }
 
+function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExecuteJobResult>((resolve) => {
+    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function fetchJson(url: string, timeoutMs = 12_000): Promise<any> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -68,122 +76,135 @@ export function requestPayment(_: any): string {
 }
 
 export async function executeJob(request: Req): Promise<ExecuteJobResult> {
-  const tokenAddress = request.tokenAddress.trim();
-  const t0 = Date.now();
-  logJobEvent({
-    phase: "start",
-    offering: "suicatap_tx_preflight",
-    chain: "base",
-    token: maskAddress(tokenAddress),
-  });
-  const intent: Intent = (request.intent ?? "buy") as Intent;
-  const amountUsd = request.amountUsd;
-  const approveUnlimited = Boolean(request.approveUnlimited ?? false);
-  const approveSpender = request.approveSpender?.trim() ?? null;
-
-  const ts = new Date().toISOString();
-  const receiptUrl = `${RESOURCE_URL}?tokenAddress=${tokenAddress}`;
-
-  const errors: string[] = [];
-  let riskRaw: any = null;
-
-  try {
-    riskRaw = await fetchJson(receiptUrl);
-  } catch (e: any) {
-    errors.push(`ResourceAPI: ${String(e?.message ?? e)}`);
+  // 1. Input validation — return, not throw
+  if (!isHexAddress((request as any)?.tokenAddress)) {
+    return { deliverable: "Invalid request: tokenAddress must be a 0x… 40-byte address" };
   }
 
-  const risk = riskRaw?.risk ?? {};
-  const symbol: string = riskRaw?.token?.symbol ?? "UNKNOWN";
-  const liqUsd = Number(risk.liqUsd ?? 0);
-  const vol24 = Number(risk.vol24 ?? 0);
-  const isHoneypot = Boolean(risk.isHoneypot ?? false);
-  const riskLevel = Number(risk.riskLevel ?? 99);
-  const buyTax = Number(risk.buyTax ?? 0);
-  const sellTax = Number(risk.sellTax ?? 0);
-  const beep: string =
-    risk.beep ?? (isHoneypot || riskLevel >= 4 ? "🔴" : riskLevel >= 2 ? "🟡" : "🟢");
+  // 2. SLA 4-min timeout wrapper
+  return withSla(
+    (async (): Promise<ExecuteJobResult> => {
+      const tokenAddress = request.tokenAddress.trim();
+      const t0 = Date.now();
+      logJobEvent({
+        phase: "start",
+        offering: "suicatap_tx_preflight",
+        chain: "base",
+        token: maskAddress(tokenAddress),
+      });
+      const intent: Intent = (request.intent ?? "buy") as Intent;
+      const amountUsd = request.amountUsd;
+      const approveUnlimited = Boolean(request.approveUnlimited ?? false);
+      const approveSpender = request.approveSpender?.trim() ?? null;
 
-  if (Array.isArray(riskRaw?.errors)) errors.push(...riskRaw.errors);
+      const ts = new Date().toISOString();
+      const receiptUrl = `${RESOURCE_URL}?tokenAddress=${tokenAddress}`;
 
-  const reasons: string[] = Array.isArray(risk.reasons) ? risk.reasons : [];
-  if (isHoneypot && !reasons.some((r) => r.includes("Honeypot")))
-    reasons.push("Honeypot suspected (isHoneypot=true)");
-  if (reasons.length === 0) reasons.push("No critical flags detected (not a guarantee of safety).");
+      const errors: string[] = [];
+      let riskRaw: any = null;
 
-  let decision = classify(beep);
-  const warnings: string[] = [];
+      try {
+        riskRaw = await fetchJson(receiptUrl);
+      } catch {
+        // 3. API failure fallback — never throw
+        errors.push("API temporarily unavailable, partial result");
+      }
 
-  if (intent === "approve") {
-    if (approveUnlimited) warnings.push("Unlimited approve is risky. Prefer minimal allowance.");
-    if (!approveSpender)
-      warnings.push("approveSpender not provided. Verify what contract you are approving.");
-    if (decision === "ALLOW") decision = "CAUTION";
-  }
+      const risk = riskRaw?.risk ?? {};
+      const symbol: string = riskRaw?.token?.symbol ?? "UNKNOWN";
+      const liqUsd = Number(risk.liqUsd ?? 0);
+      const vol24 = Number(risk.vol24 ?? 0);
+      const isHoneypot = Boolean(risk.isHoneypot ?? false);
+      const riskLevel = Number(risk.riskLevel ?? 99);
+      const buyTax = Number(risk.buyTax ?? 0);
+      const sellTax = Number(risk.sellTax ?? 0);
+      const beep: string =
+        risk.beep ?? (isHoneypot || riskLevel >= 4 ? "🔴" : riskLevel >= 2 ? "🟡" : "🟢");
 
-  const size = sizeRule(amountUsd);
-  if (size.tier === "LARGE" && decision === "ALLOW") decision = "CAUTION";
-  if (size.tier === "LARGE" && beep === "🟡") decision = "BLOCK";
+      if (Array.isArray(riskRaw?.errors)) errors.push(...riskRaw.errors);
 
-  const slip = recommendSlippage(intent, liqUsd);
+      const reasons: string[] = Array.isArray(risk.reasons) ? risk.reasons : [];
+      if (isHoneypot && !reasons.some((r) => r.includes("Honeypot")))
+        reasons.push("Honeypot suspected (isHoneypot=true)");
+      if (reasons.length === 0)
+        reasons.push("No critical flags detected (not a guarantee of safety).");
 
-  const preflight = {
-    version: "suicatap_preflight_v2",
-    timestamp: ts,
-    chainID: BASE_CHAIN_ID,
-    token: { address: tokenAddress, symbol },
-    input: { intent, amountUsd: amountUsd ?? null, approveSpender, approveUnlimited },
-    signals: { beep, reasons, riskLevel, buyTax, sellTax, isHoneypot, liqUsd, vol24 },
-    decision,
-    recommendations: {
-      slippage: slip,
-      sizing: size,
-      actions: [
-        "Start with a small test size ($5–$20), then scale",
-        "Split entries for low liquidity / elevated tax",
-        "Avoid unlimited approve; approve minimal allowance",
-      ],
-    },
-    receiptUrl,
-    errors,
-  };
+      let decision = classify(beep);
+      const warnings: string[] = [];
 
-  const out: string[] = [];
-  out.push(`🍉 **SuicaTap TX Preflight (Base) — ${symbol}**`);
-  out.push(`- Token: \`${tokenAddress}\``);
-  out.push(`- Intent: **${intent}**`);
-  if (typeof amountUsd === "number") out.push(`- Amount (USD): ~${amountUsd}`);
-  out.push(`- Time: ${ts}`);
-  out.push("");
-  out.push(`## Result: **${decision}** (beep: ${beep})`);
-  reasons.forEach((r) => out.push(`- ${r}`));
-  warnings.forEach((w) => out.push(`- ⚠️ ${w}`));
-  out.push("");
-  out.push("## Suggested settings");
-  out.push(`- Slippage: ${slip}`);
-  out.push(`- Sizing: ${size.tip}`);
-  out.push(
-    `- Market: Liquidity≈$${liqUsd.toFixed(0)}, Vol(24h)≈$${vol24.toFixed(0)}, Tax=${buyTax}%/${sellTax}%`
+      if (intent === "approve") {
+        if (approveUnlimited)
+          warnings.push("Unlimited approve is risky. Prefer minimal allowance.");
+        if (!approveSpender)
+          warnings.push("approveSpender not provided. Verify what contract you are approving.");
+        if (decision === "ALLOW") decision = "CAUTION";
+      }
+
+      const size = sizeRule(amountUsd);
+      if (size.tier === "LARGE" && decision === "ALLOW") decision = "CAUTION";
+      if (size.tier === "LARGE" && beep === "🟡") decision = "BLOCK";
+
+      const slip = recommendSlippage(intent, liqUsd);
+
+      const preflight = {
+        version: "suicatap_preflight_v2",
+        timestamp: ts,
+        chainID: BASE_CHAIN_ID,
+        token: { address: tokenAddress, symbol },
+        input: { intent, amountUsd: amountUsd ?? null, approveSpender, approveUnlimited },
+        signals: { beep, reasons, riskLevel, buyTax, sellTax, isHoneypot, liqUsd, vol24 },
+        decision,
+        recommendations: {
+          slippage: slip,
+          sizing: size,
+          actions: [
+            "Start with a small test size ($5–$20), then scale",
+            "Split entries for low liquidity / elevated tax",
+            "Avoid unlimited approve; approve minimal allowance",
+          ],
+        },
+        receiptUrl,
+        errors,
+      };
+
+      const out: string[] = [];
+      out.push(`🍉 **SuicaTap TX Preflight (Base) — ${symbol}**`);
+      out.push(`- Token: \`${tokenAddress}\``);
+      out.push(`- Intent: **${intent}**`);
+      if (typeof amountUsd === "number") out.push(`- Amount (USD): ~${amountUsd}`);
+      out.push(`- Time: ${ts}`);
+      out.push("");
+      out.push(`## Result: **${decision}** (beep: ${beep})`);
+      reasons.forEach((r) => out.push(`- ${r}`));
+      warnings.forEach((w) => out.push(`- ⚠️ ${w}`));
+      out.push("");
+      out.push("## Suggested settings");
+      out.push(`- Slippage: ${slip}`);
+      out.push(`- Sizing: ${size.tip}`);
+      out.push(
+        `- Market: Liquidity≈$${liqUsd.toFixed(0)}, Vol(24h)≈$${vol24.toFixed(0)}, Tax=${buyTax}%/${sellTax}%`
+      );
+      out.push("");
+      out.push("## Proof (JSON Resource)");
+      out.push(receiptUrl);
+      out.push("");
+      out.push("## Preflight receipt (JSON)");
+      out.push("```json");
+      out.push(JSON.stringify(preflight, null, 2));
+      out.push("```");
+      out.push("> Note: This is a technical risk summary, not financial advice.");
+
+      logJobEvent({
+        phase: errors.length > 0 ? "fail" : "ok",
+        offering: "suicatap_tx_preflight",
+        chain: "base",
+        token: maskAddress(tokenAddress),
+        durationMs: Date.now() - t0,
+        outcome: decision,
+        reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
+      });
+
+      return { deliverable: out.join("\n") };
+    })()
   );
-  out.push("");
-  out.push("## Proof (JSON Resource)");
-  out.push(receiptUrl);
-  out.push("");
-  out.push("## Preflight receipt (JSON)");
-  out.push("```json");
-  out.push(JSON.stringify(preflight, null, 2));
-  out.push("```");
-  out.push("> Note: This is a technical risk summary, not financial advice.");
-
-  logJobEvent({
-    phase: errors.length > 0 ? "fail" : "ok",
-    offering: "suicatap_tx_preflight",
-    chain: "base",
-    token: maskAddress(tokenAddress),
-    durationMs: Date.now() - t0,
-    outcome: decision,
-    reasonCode: errors.length > 0 ? reasonFromErrors(errors) : undefined,
-  });
-
-  return { deliverable: out.join("\n") };
 }

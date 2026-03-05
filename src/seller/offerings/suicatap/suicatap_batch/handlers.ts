@@ -23,6 +23,14 @@ export function requestPayment(_req: any): string {
   return "SuicaTap Batch Scan — scanning up to 5 tokens. Verifiable JSON receipts included.";
 }
 
+function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExecuteJobResult>((resolve) => {
+    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function scanOne(tokenAddress: string): Promise<any> {
   const url = `${RISK_BASE}?tokenAddress=${tokenAddress}`;
   const ctrl = new AbortController();
@@ -31,11 +39,11 @@ async function scanOne(tokenAddress: string): Promise<any> {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
-  } catch (e: any) {
+  } catch {
     return {
       token: { address: tokenAddress, symbol: "UNKNOWN" },
-      risk: { beep: "⚪", reasons: [`scan_error: ${e?.message ?? e}`] },
-      errors: [String(e?.message ?? e)],
+      risk: { beep: "⚪", reasons: ["API temporarily unavailable, partial result"] },
+      errors: ["API temporarily unavailable, partial result"],
     };
   } finally {
     clearTimeout(t);
@@ -43,77 +51,87 @@ async function scanOne(tokenAddress: string): Promise<any> {
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
-  const tokenAddresses: string[] = req.tokenAddresses;
-  const t0 = Date.now();
-  logJobEvent({ phase: "start", offering: "suicatap_batch", chain: "base" });
-  const ts = new Date().toISOString();
+  // 1. Input validation — return, not throw
+  if (!Array.isArray(req?.tokenAddresses) || req.tokenAddresses.length === 0) {
+    return { deliverable: "Invalid request: tokenAddresses must be a non-empty array" };
+  }
 
-  const results = await Promise.all(tokenAddresses.map(scanOne));
+  // 2. SLA 4-min timeout wrapper
+  return withSla(
+    (async (): Promise<ExecuteJobResult> => {
+      const tokenAddresses: string[] = req.tokenAddresses;
+      const t0 = Date.now();
+      logJobEvent({ phase: "start", offering: "suicatap_batch", chain: "base" });
+      const ts = new Date().toISOString();
 
-  const lines: string[] = [];
-  lines.push(`🍉 **SuicaTap Batch Scan — ${tokenAddresses.length} token(s)**`);
-  lines.push(`- Time: ${ts}`);
-  lines.push(`- Chain: Base (chainID ${BASE_CHAIN_ID})`);
-  lines.push("");
+      const results = await Promise.all(tokenAddresses.map(scanOne));
 
-  results.forEach((r, i) => {
-    const addr = tokenAddresses[i];
-    const symbol = r?.token?.symbol ?? "UNKNOWN";
-    const beep = r?.risk?.beep ?? "⚪";
-    const reasons = (r?.risk?.reasons ?? []).join(", ");
-    const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
-    const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
-    const receiptUrl = `${RISK_BASE}?tokenAddress=${addr}`;
+      const lines: string[] = [];
+      lines.push(`🍉 **SuicaTap Batch Scan — ${tokenAddresses.length} token(s)**`);
+      lines.push(`- Time: ${ts}`);
+      lines.push(`- Chain: Base (chainID ${BASE_CHAIN_ID})`);
+      lines.push("");
 
-    lines.push(`### [${i + 1}] ${beep} ${symbol}`);
-    lines.push(`- Address: \`${addr}\``);
-    lines.push(`- Verdict: ${beep} — ${reasons}`);
-    lines.push(`- Liquidity: ${liq} | Tax: ${tax}`);
-    lines.push(`- Receipt: ${receiptUrl}`);
-    lines.push("");
-  });
+      results.forEach((r, i) => {
+        const addr = tokenAddresses[i];
+        const symbol = r?.token?.symbol ?? "UNKNOWN";
+        const beep = r?.risk?.beep ?? "⚪";
+        const reasons = (r?.risk?.reasons ?? []).join(", ");
+        const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
+        const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
+        const receiptUrl = `${RISK_BASE}?tokenAddress=${addr}`;
 
-  lines.push("> Note: Technical risk summary only. Not financial advice.");
-  lines.push("");
-  lines.push("## Receipt (JSON)");
-  lines.push("```json");
-  lines.push(
-    JSON.stringify(
-      {
-        version: "suicatap_batch_v1",
-        timestamp: ts,
-        chainID: BASE_CHAIN_ID,
-        tokens: results.map((r, i) => ({
-          address: tokenAddresses[i],
-          symbol: r?.token?.symbol ?? "UNKNOWN",
-          beep: r?.risk?.beep ?? "⚪",
-          reasons: r?.risk?.reasons ?? [],
-          liqUsd: r?.risk?.liqUsd ?? null,
-          buyTax: r?.risk?.buyTax ?? null,
-          sellTax: r?.risk?.sellTax ?? null,
-          isHoneypot: r?.risk?.isHoneypot ?? false,
-          errors: r?.errors ?? [],
-        })),
-      },
-      null,
-      2
-    )
+        lines.push(`### [${i + 1}] ${beep} ${symbol}`);
+        lines.push(`- Address: \`${addr}\``);
+        lines.push(`- Verdict: ${beep} — ${reasons}`);
+        lines.push(`- Liquidity: ${liq} | Tax: ${tax}`);
+        lines.push(`- Receipt: ${receiptUrl}`);
+        lines.push("");
+      });
+
+      lines.push("> Note: Technical risk summary only. Not financial advice.");
+      lines.push("");
+      lines.push("## Receipt (JSON)");
+      lines.push("```json");
+      lines.push(
+        JSON.stringify(
+          {
+            version: "suicatap_batch_v1",
+            timestamp: ts,
+            chainID: BASE_CHAIN_ID,
+            tokens: results.map((r, i) => ({
+              address: tokenAddresses[i],
+              symbol: r?.token?.symbol ?? "UNKNOWN",
+              beep: r?.risk?.beep ?? "⚪",
+              reasons: r?.risk?.reasons ?? [],
+              liqUsd: r?.risk?.liqUsd ?? null,
+              buyTax: r?.risk?.buyTax ?? null,
+              sellTax: r?.risk?.sellTax ?? null,
+              isHoneypot: r?.risk?.isHoneypot ?? false,
+              errors: r?.errors ?? [],
+            })),
+          },
+          null,
+          2
+        )
+      );
+      lines.push("```");
+
+      const hasAnyError = results.some((r) => Array.isArray(r?.errors) && r.errors.length > 0);
+      const hasRed = results.some((r) => r?.risk?.beep === "🔴");
+      const hasYellow = results.some((r) => r?.risk?.beep === "🟡");
+      const outcome = hasRed ? "BLOCK" : hasYellow ? "CAUTION" : "PASS";
+      const allErrors = results.flatMap((r) => r?.errors ?? []);
+      logJobEvent({
+        phase: hasAnyError ? "fail" : "ok",
+        offering: "suicatap_batch",
+        chain: "base",
+        durationMs: Date.now() - t0,
+        outcome,
+        reasonCode: hasAnyError ? reasonFromErrors(allErrors) : undefined,
+      });
+
+      return { deliverable: lines.join("\n") };
+    })()
   );
-  lines.push("```");
-
-  const hasAnyError = results.some((r) => Array.isArray(r?.errors) && r.errors.length > 0);
-  const hasRed = results.some((r) => r?.risk?.beep === "🔴");
-  const hasYellow = results.some((r) => r?.risk?.beep === "🟡");
-  const outcome = hasRed ? "BLOCK" : hasYellow ? "CAUTION" : "PASS";
-  const allErrors = results.flatMap((r) => r?.errors ?? []);
-  logJobEvent({
-    phase: hasAnyError ? "fail" : "ok",
-    offering: "suicatap_batch",
-    chain: "base",
-    durationMs: Date.now() - t0,
-    outcome,
-    reasonCode: hasAnyError ? reasonFromErrors(allErrors) : undefined,
-  });
-
-  return { deliverable: lines.join("\n") };
 }

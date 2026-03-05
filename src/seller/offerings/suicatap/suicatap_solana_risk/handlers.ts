@@ -8,6 +8,14 @@ function isSolanaMint(s: unknown): s is string {
   return typeof s === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s.trim());
 }
 
+function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExecuteJobResult>((resolve) => {
+    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
 export function validateRequirements(req: any): ValidationResult {
   const mint = String(req?.input ?? req?.mintAddress ?? "").trim();
   if (!isSolanaMint(mint))
@@ -23,70 +31,89 @@ export function requestPayment(_: any): string {
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
-  const mintAddress = String(req.input ?? req.mintAddress).trim();
-  const t0 = Date.now();
-  logJobEvent({
-    phase: "start",
-    offering: "suicatap_solana_risk",
-    chain: "solana",
-    token: maskAddress(mintAddress),
-  });
-
-  const receiptUrl = `${RUGCHECK_BASE}/${mintAddress}/report/summary`;
-
-  try {
-    const r = await checkSolana(mintAddress);
-    const verdict = r.riskLevel <= 10 ? "PASS" : r.riskLevel <= 40 ? "CAUTION" : "BLOCK";
-    const emoji = verdict === "PASS" ? "🟢" : verdict === "CAUTION" ? "🟡" : "🔴";
-
-    const deliverable = {
-      type: "suicatap_solana_risk_v1",
-      value: {
-        mintAddress,
-        chain: "solana",
-        verdict,
-        emoji,
-        score: r.score,
-        riskLevel: r.riskLevel,
-        risks: r.risks,
-        isGood: r.isGood,
-        receiptUrl,
-      },
-    };
-
-    logJobEvent({
-      phase: "ok",
-      offering: "suicatap_solana_risk",
-      chain: "solana",
-      token: maskAddress(mintAddress),
-      durationMs: Date.now() - t0,
-      outcome: verdict,
-    });
-    return { deliverable };
-  } catch (err: any) {
-    logJobEvent({
-      phase: "fail",
-      offering: "suicatap_solana_risk",
-      chain: "solana",
-      token: maskAddress(mintAddress),
-      durationMs: Date.now() - t0,
-      outcome: "TEMP_UNAVAILABLE",
-      reasonCode: reasonFromErrors([String(err?.message || err)]),
-    });
+  // 1. Input validation — return, not throw
+  const mintAddress = String(req?.input ?? req?.mintAddress ?? "").trim();
+  if (!isSolanaMint(mintAddress)) {
     return {
       deliverable: {
         type: "suicatap_solana_risk_v1",
         value: {
-          mintAddress,
-          chain: "solana",
-          verdict: "TEMP_UNAVAILABLE",
-          serviceStatus: "degraded",
-          emoji: "🟡",
-          risks: ["rugcheck endpoint temporarily unavailable"],
-          receiptUrl,
-          error: String(err?.message || err),
+          verdict: "INVALID_INPUT",
+          error: "input must be a valid Solana base58 address (32–44 chars)",
         },
       },
     };
   }
+
+  // 2. SLA 4-min timeout wrapper
+  return withSla(
+    (async (): Promise<ExecuteJobResult> => {
+      const t0 = Date.now();
+      logJobEvent({
+        phase: "start",
+        offering: "suicatap_solana_risk",
+        chain: "solana",
+        token: maskAddress(mintAddress),
+      });
+
+      const receiptUrl = `${RUGCHECK_BASE}/${mintAddress}/report/summary`;
+
+      try {
+        const r = await checkSolana(mintAddress);
+        const verdict = r.riskLevel <= 10 ? "PASS" : r.riskLevel <= 40 ? "CAUTION" : "BLOCK";
+        const emoji = verdict === "PASS" ? "🟢" : verdict === "CAUTION" ? "🟡" : "🔴";
+
+        logJobEvent({
+          phase: "ok",
+          offering: "suicatap_solana_risk",
+          chain: "solana",
+          token: maskAddress(mintAddress),
+          durationMs: Date.now() - t0,
+          outcome: verdict,
+        });
+        return {
+          deliverable: {
+            type: "suicatap_solana_risk_v1",
+            value: {
+              mintAddress,
+              chain: "solana",
+              verdict,
+              emoji,
+              score: r.score,
+              riskLevel: r.riskLevel,
+              risks: r.risks,
+              isGood: r.isGood,
+              receiptUrl,
+            },
+          },
+        };
+      } catch (err: any) {
+        // 3. API failure fallback — never throw, return partial result
+        logJobEvent({
+          phase: "fail",
+          offering: "suicatap_solana_risk",
+          chain: "solana",
+          token: maskAddress(mintAddress),
+          durationMs: Date.now() - t0,
+          outcome: "TEMP_UNAVAILABLE",
+          reasonCode: reasonFromErrors(["API temporarily unavailable, partial result"]),
+        });
+        return {
+          deliverable: {
+            type: "suicatap_solana_risk_v1",
+            value: {
+              mintAddress,
+              chain: "solana",
+              verdict: "TEMP_UNAVAILABLE",
+              serviceStatus: "degraded",
+              emoji: "🟡",
+              risks: ["API temporarily unavailable, partial result"],
+              receiptUrl,
+              error: String(err?.message || err),
+            },
+          },
+        };
+      }
+    })()
+  );
 }
