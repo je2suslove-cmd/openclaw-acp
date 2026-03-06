@@ -1,9 +1,8 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { logJobEvent, reasonFromErrors } from "../lib/logger.js";
-import { isHexAddress, withSla } from "../lib/utils.js";
+import { isHexAddress, withSla, scanRiskApi } from "../lib/utils.js";
 
 const BASE_CHAIN_ID = 8453;
-const RISK_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 
 export function validateRequirements(req: any): ValidationResult {
   const addrs = req?.tokenAddresses;
@@ -20,25 +19,6 @@ export function requestPayment(_req: any): string {
   return "SuicaTap Batch Scan — scanning up to 5 tokens. Verifiable JSON receipts included.";
 }
 
-async function scanOne(tokenAddress: string): Promise<any> {
-  const url = `${RISK_BASE}?tokenAddress=${tokenAddress}`;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 15_000);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch {
-    return {
-      token: { address: tokenAddress, symbol: "UNKNOWN" },
-      risk: { beep: "⚪", reasons: ["API temporarily unavailable, partial result"] },
-      errors: ["API temporarily unavailable, partial result"],
-    };
-  } finally {
-    clearTimeout(t);
-  }
-}
-
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
   // 1. Input validation — return, not throw
   if (!Array.isArray(req?.tokenAddresses) || req.tokenAddresses.length === 0) {
@@ -53,7 +33,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
       logJobEvent({ phase: "start", offering: "suicatap_batch", chain: "base" });
       const ts = new Date().toISOString();
 
-      const results = await Promise.all(tokenAddresses.map(scanOne));
+      const results = await Promise.all(tokenAddresses.map((a) => scanRiskApi(a)));
 
       const lines: string[] = [];
       lines.push(`🍉 **SuicaTap Batch Scan — ${tokenAddresses.length} token(s)**`);
@@ -68,7 +48,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
         const reasons = (r?.risk?.reasons ?? []).join(", ");
         const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
         const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
-        const receiptUrl = `${RISK_BASE}?tokenAddress=${addr}`;
+        const receiptUrl = `https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=${addr}`;
 
         lines.push(`### [${i + 1}] ${beep} ${symbol}`);
         lines.push(`- Address: \`${addr}\``);

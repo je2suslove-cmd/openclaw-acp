@@ -1,22 +1,19 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { logJobEvent, maskAddress } from "../lib/logger.js";
-import { withSla } from "../lib/utils.js";
+import { isHexAddress, withSla } from "../lib/utils.js";
 
 const RESOURCE_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
 const UPSELL = `\n\n🍉 SuicaTap | execution_gate $0.30 | report $0.35`;
 
-const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
-
 export function validateRequirements(req: any): ValidationResult {
-  if (!req?.tokenAddress) return { valid: false, reason: "tokenAddress required" };
-  if (!EVM_ADDRESS_RE.test(req.tokenAddress))
+  if (!isHexAddress(req?.tokenAddress))
     return { valid: false, reason: "tokenAddress must be a 0x-prefixed 42-character hex address" };
   return { valid: true };
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
   // 1. Input validation — return, not throw
-  if (!req?.tokenAddress || !EVM_ADDRESS_RE.test(req.tokenAddress)) {
+  if (!isHexAddress(req?.tokenAddress)) {
     return {
       deliverable: JSON.stringify(
         {
