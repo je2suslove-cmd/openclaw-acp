@@ -260,11 +260,13 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID ? Number(process.env.ADMIN_CHAT_
 (async () => {
   console.log("[BountyPoller] Initializing...");
   try {
-    const { startBountyPoller } = await import("./skills/bountyPoller.js");
-    startBountyPoller(undefined, ADMIN_CHAT_ID ?? undefined);
+    const mod = await import("./skills/bountyPoller.js");
+    console.log("[BountyPoller] Module loaded, keys:", Object.keys(mod));
+    mod.startBountyPoller(undefined, ADMIN_CHAT_ID ?? undefined);
     console.log("[BountyPoller] Initialized successfully");
   } catch (e: any) {
-    console.error("[BountyPoller] init failed:", e);
+    console.error("[BountyPoller] init failed:", e.message);
+    console.error("[BountyPoller] stack:", e.stack);
   }
 })();
 
