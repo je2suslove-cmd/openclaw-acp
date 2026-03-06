@@ -1,12 +1,9 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { logJobEvent, reasonFromErrors } from "../lib/logger.js";
+import { isHexAddress, withSla } from "../lib/utils.js";
 
 const BASE_CHAIN_ID = 8453;
 const RISK_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
-
-function isHexAddress(s: unknown): s is string {
-  return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
-}
 
 export function validateRequirements(req: any): ValidationResult {
   const addrs = req?.tokenAddresses;
@@ -21,14 +18,6 @@ export function validateRequirements(req: any): ValidationResult {
 
 export function requestPayment(_req: any): string {
   return "SuicaTap Batch Scan — scanning up to 5 tokens. Verifiable JSON receipts included.";
-}
-
-function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ExecuteJobResult>((resolve) => {
-    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
-  });
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
 
 async function scanOne(tokenAddress: string): Promise<any> {

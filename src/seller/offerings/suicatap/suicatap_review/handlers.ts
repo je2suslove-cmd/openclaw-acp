@@ -1,18 +1,7 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { addReview, getReviewCount } from "../../../lib/reviews.js";
 import { logJobEvent } from "../lib/logger.js";
-
-function isHexAddress(s: unknown): s is string {
-  return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
-}
-
-function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ExecuteJobResult>((resolve) => {
-    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
-  });
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
-}
+import { isHexAddress, withSla } from "../lib/utils.js";
 
 export function validateRequirements(req: any): ValidationResult {
   if (!isHexAddress(req?.agentAddress))
