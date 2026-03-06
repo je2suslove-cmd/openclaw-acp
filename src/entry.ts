@@ -256,17 +256,27 @@ if (process.env.TELEGRAM_ENABLED === "1") {
 // ── 자동화 스킬 (non-fatal) ──
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID ? Number(process.env.ADMIN_CHAT_ID) : null;
 
-setTimeout(async () => {
-  // Telegram sendMessage 콜백 — ADMIN_CHAT_ID + bot 둘 다 있을 때만 활성
-  let sendMsg: ((chatId: number | string, text: string) => Promise<any>) | undefined;
+// BountyPoller: Telegram 불필요 — 서버 시작 즉시 실행
+(async () => {
+  console.log("[BountyPoller] Initializing...");
+  try {
+    const { startBountyPoller } = await import("./skills/bountyPoller.js");
+    startBountyPoller(undefined, ADMIN_CHAT_ID ?? undefined);
+    console.log("[BountyPoller] Initialized successfully");
+  } catch (e: any) {
+    console.error("[BountyPoller] init failed:", e);
+  }
+})();
 
+// 30초 후: Telegram 의존 스킬
+setTimeout(async () => {
   if (ADMIN_CHAT_ID) {
     try {
       const { getTelegramBot } = await import("./telegramBot.js");
       const bot = getTelegramBot();
       if (bot) {
-        sendMsg = (chatId, text) => bot.telegram.sendMessage(chatId, text);
-
+        const sendMsg = (chatId: number | string, text: string) =>
+          bot.telegram.sendMessage(chatId, text);
         const { startNewTokenScanner } = await import("./skills/newTokenScanner.js");
         startNewTokenScanner(sendMsg, ADMIN_CHAT_ID);
       } else {
@@ -277,15 +287,5 @@ setTimeout(async () => {
     }
   } else {
     console.log("[Scanner] ADMIN_CHAT_ID not set; 새 토큰 알림 비활성");
-  }
-
-  // BountyPoller: Telegram 유무와 관계없이 항상 시작
-  console.log("[BountyPoller] Initializing...");
-  try {
-    const { startBountyPoller } = await import("./skills/bountyPoller.js");
-    startBountyPoller(sendMsg, ADMIN_CHAT_ID ?? undefined);
-    console.log("[BountyPoller] Initialized successfully");
-  } catch (e: any) {
-    console.error("[BountyPoller] init failed:", e);
   }
 }, 30000); // 30초 후 시작
