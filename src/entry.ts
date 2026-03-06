@@ -4,6 +4,10 @@ import type { IncomingMessage } from "node:http";
 import { URL } from "node:url";
 import { handleTelegramUpdate } from "./telegramBot.js";
 
+process.on("unhandledRejection", (reason) => {
+  console.error("[entry] Unhandled rejection:", reason);
+});
+
 const PORT = Number(process.env.PORT || 8080);
 const BASE_CHAIN_ID = 8453;
 const TELEGRAM_WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
