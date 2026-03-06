@@ -307,12 +307,12 @@ export function startBountyPoller(
 
   // Run immediately on start, then on interval
   pollCycle(sendMessage, adminChatId).catch((err) =>
-    log(`Poll cycle error: ${err instanceof Error ? err.message : String(err)}`)
+    console.error("[BountyPoller] Poll cycle error (immediate):", err)
   );
 
   pollTimer = setInterval(() => {
     pollCycle(sendMessage, adminChatId).catch((err) =>
-      log(`Poll cycle error: ${err instanceof Error ? err.message : String(err)}`)
+      console.error("[BountyPoller] Poll cycle error (interval):", err)
     );
   }, intervalMs);
 
