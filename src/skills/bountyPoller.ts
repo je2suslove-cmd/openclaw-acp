@@ -305,6 +305,11 @@ export function startBountyPoller(
   const intervalMs = Number(process.env.BOUNTY_POLL_INTERVAL_MS ?? 10 * 60 * 1000);
   log(`Starting (interval=${intervalMs}ms, applied_cache=${appliedIds.size})`);
 
+  // Run immediately on start, then on interval
+  pollCycle(sendMessage, adminChatId).catch((err) =>
+    log(`Poll cycle error: ${err instanceof Error ? err.message : String(err)}`)
+  );
+
   pollTimer = setInterval(() => {
     pollCycle(sendMessage, adminChatId).catch((err) =>
       log(`Poll cycle error: ${err instanceof Error ? err.message : String(err)}`)
