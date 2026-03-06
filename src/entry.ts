@@ -276,10 +276,12 @@ setTimeout(async () => {
   }
 
   // BountyPoller: Telegram 유무와 관계없이 항상 시작
+  console.log("[BountyPoller] Initializing...");
   try {
     const { startBountyPoller } = await import("./skills/bountyPoller.js");
     startBountyPoller(sendMsg, ADMIN_CHAT_ID ?? undefined);
+    console.log("[BountyPoller] Initialized successfully");
   } catch (e: any) {
-    console.error("[BountyPoller] init failed:", e?.message ?? e);
+    console.error("[BountyPoller] init failed:", e);
   }
 }, 30000); // 30초 후 시작

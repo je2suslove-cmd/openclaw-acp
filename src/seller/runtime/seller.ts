@@ -278,6 +278,19 @@ async function main() {
   });
 
   console.log("[seller] Seller runtime is running. Waiting for jobs...\n");
+
+  // BountyPoller: standalone 모드(acp serve start)에서만 시작.
+  // entry.ts 임베디드 모드(npm start)에서는 entry.ts의 setTimeout 블록이 담당.
+  if (IS_MAIN_PROCESS) {
+    import("../../skills/bountyPoller.js")
+      .then(({ startBountyPoller }) => {
+        startBountyPoller();
+        console.log("[seller] BountyPoller started (standalone mode)");
+      })
+      .catch((e: any) => {
+        console.error("[seller] BountyPoller init failed:", e);
+      });
+  }
 }
 
 main().catch((err) => {
