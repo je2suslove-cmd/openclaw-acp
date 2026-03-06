@@ -37,3 +37,30 @@ export function beepFromRisk(riskLevel: number, isHoneypot: boolean): string {
   if (riskLevel >= 40) return "🟡";
   return "🟢";
 }
+
+const RISK_API_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
+
+/**
+ * Fetch a single token's risk data from the Resource API.
+ * Returns a graceful fallback object on any network or HTTP error.
+ */
+export async function scanRiskApi(tokenAddress: string, chain?: string): Promise<any> {
+  const url = chain
+    ? `${RISK_API_BASE}?tokenAddress=${tokenAddress}&chain=${chain}`
+    : `${RISK_API_BASE}?tokenAddress=${tokenAddress}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch {
+    return {
+      token: { address: tokenAddress, symbol: "UNKNOWN" },
+      risk: { beep: "⚪", reasons: ["API temporarily unavailable, partial result"] },
+      errors: ["API temporarily unavailable, partial result"],
+    };
+  } finally {
+    clearTimeout(t);
+  }
+}

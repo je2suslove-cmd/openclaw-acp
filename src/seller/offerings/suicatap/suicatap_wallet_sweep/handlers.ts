@@ -1,8 +1,6 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { logJobEvent, reasonFromErrors } from "../lib/logger.js";
-import { isHexAddress, withSla } from "../lib/utils.js";
-
-const RISK_BASE = "https://acp-acp-whoami-production.up.railway.app/r/risk";
+import { isHexAddress, withSla, scanRiskApi } from "../lib/utils.js";
 
 export function validateRequirements(req: any): ValidationResult {
   const addrs = req?.tokenAddresses;
@@ -17,25 +15,6 @@ export function validateRequirements(req: any): ValidationResult {
 
 export function requestPayment(_req: any): string {
   return "SuicaTap Wallet Sweep — scanning wallet portfolio risk.";
-}
-
-async function scanOne(tokenAddress: string, chain: string): Promise<any> {
-  const url = `${RISK_BASE}?tokenAddress=${tokenAddress}&chain=${chain}`;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 15_000);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch {
-    return {
-      token: { address: tokenAddress, symbol: "UNKNOWN" },
-      risk: { beep: "⚪", reasons: ["API temporarily unavailable, partial result"] },
-      errors: ["API temporarily unavailable, partial result"],
-    };
-  } finally {
-    clearTimeout(t);
-  }
 }
 
 export async function executeJob(req: any): Promise<ExecuteJobResult> {
@@ -54,7 +33,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
       logJobEvent({ phase: "start", offering: "suicatap_wallet_sweep", chain });
       const ts = new Date().toISOString();
 
-      const results = await Promise.all(tokenAddresses.map((a) => scanOne(a, chain)));
+      const results = await Promise.all(tokenAddresses.map((a) => scanRiskApi(a, chain)));
 
       // 포트폴리오 요약
       const redCount = results.filter((r) => r?.risk?.beep === "🔴").length;
@@ -83,7 +62,7 @@ export async function executeJob(req: any): Promise<ExecuteJobResult> {
         const liq = r?.risk?.liqUsd != null ? `$${Number(r.risk.liqUsd).toFixed(0)}` : "?";
         const tax = r?.risk?.buyTax != null ? `${r.risk.buyTax}%/${r.risk.sellTax}%` : "?";
         const honey = r?.risk?.isHoneypot ? "⚠️ HONEYPOT" : "OK";
-        const receipt = `${RISK_BASE}?tokenAddress=${addr}&chain=${chain}`;
+        const receipt = `https://acp-acp-whoami-production.up.railway.app/r/risk?tokenAddress=${addr}&chain=${chain}`;
 
         lines.push(`### [${i + 1}] ${beep} ${symbol}`);
         lines.push(`- Address: \`${addr}\``);
