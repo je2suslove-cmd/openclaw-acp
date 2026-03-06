@@ -1,19 +1,12 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { checkSolana } from "../../../../skills/rugcheck.js";
 import { logJobEvent, maskAddress, reasonFromErrors } from "../lib/logger.js";
+import { withSla } from "../lib/utils.js";
 
 const RUGCHECK_BASE = "https://api.rugcheck.xyz/v1/tokens";
 
 function isSolanaMint(s: unknown): s is string {
   return typeof s === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s.trim());
-}
-
-function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ExecuteJobResult>((resolve) => {
-    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
-  });
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
 
 export function validateRequirements(req: any): ValidationResult {

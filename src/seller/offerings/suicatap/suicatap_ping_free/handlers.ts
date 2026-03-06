@@ -1,14 +1,7 @@
 import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeringTypes.js";
 import { logJobEvent } from "../lib/logger.js";
 import { getReviewCount } from "../../../lib/reviews.js";
-
-function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ExecuteJobResult>((resolve) => {
-    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
-  });
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
-}
+import { withSla } from "../lib/utils.js";
 
 export function validateRequirements(_: any): ValidationResult {
   return { valid: true };
@@ -35,7 +28,7 @@ export async function executeJob(_: any): Promise<ExecuteJobResult> {
         "✅ SuicaTap is ONLINE",
         "",
         "## Services",
-        "• suicatap_beep $0.05 — honeypot + rug check (Base/ETH/BSC)",
+        "• suicatap_beep $0.02 — honeypot + rug check (Base/ETH/BSC)",
         "• suicatap_batch $0.15 — scan up to 5 tokens at once",
         "• suicatap_solana_risk $0.05 — Solana rugcheck via RugCheck.xyz",
         "• suicatap_tx_preflight $0.15 — safety gate before approve/swap",

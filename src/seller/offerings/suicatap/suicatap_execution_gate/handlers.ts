@@ -2,10 +2,7 @@ import type { ExecuteJobResult, ValidationResult } from "../../../runtime/offeri
 import { checkHoneypot } from "../../../../skills/risk.js";
 import { buildReceipt } from "../../../../types/receipt.js";
 import { logJobEvent, maskAddress } from "../lib/logger.js";
-
-function isHexAddress(s: unknown): s is string {
-  return typeof s === "string" && /^0x[a-fA-F0-9]{40}$/.test(s.trim());
-}
+import { isHexAddress, withSla } from "../lib/utils.js";
 
 export function validateRequirements(req: any): ValidationResult {
   if (!isHexAddress(req?.tokenAddress))
@@ -22,14 +19,6 @@ const CHAIN_MAP: Record<string, { name: string; chainId: number }> = {
   eth: { name: "ethereum", chainId: 1 },
   bsc: { name: "bsc", chainId: 56 },
 };
-
-function withSla(work: Promise<ExecuteJobResult>): Promise<ExecuteJobResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ExecuteJobResult>((resolve) => {
-    timer = setTimeout(() => resolve({ deliverable: "Processing timeout, please retry" }), 240_000);
-  });
-  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
-}
 
 const EXECUTORS: Record<string, { name: string; wallet: string; job: string }> = {
   base: { name: "ethy_ai", wallet: "0xfc9f1fF5eC524759c1Dc8E0a6EBA6c22805b9d8B", job: "swap" },
